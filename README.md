@@ -7,6 +7,9 @@ It is assumed you already have a working nagios environment in place, which prov
 
 # Installation
 Copy the .pl and .cfg files to the nagios user home directory
+
+Edit the .cfg to match your local environment to/from email addresses, hostnames
+
 Create a cron job similar to the following:
 ```
     5 * * * * /home/nagios/daily_status_report.pl >/dev/null 2>&1 #generate daily report of host health
