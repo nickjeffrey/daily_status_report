@@ -662,6 +662,9 @@ sub verify_os_linux {
    #
    # query all the linux hosts to confirm the operating system reported by SNMP 
    #
+   $community = $community_linux;                                            			#set the SNMP community string for this device type
+   print "   setting SNMP community to $community \n" if ($verbose eq "yes");
+   #
    foreach $key (sort keys %linux_hosts) {
       #
       # .1.3.6.1.2.1.1.1.0 HOST-RESOURCES-MIB::hrSysDescr
@@ -699,6 +702,9 @@ sub verify_os_windows {
    # this subroutine runs to confirm that the contents of the @windows_hosts array really does contain Windows hosts, but performing an SNMP query to verify the operating system
    #
    # query all the windows hosts to confirm the operating system reported by SNMP 
+   #
+   $community = $community_windows;                                            			#set the SNMP community string for this device type
+   print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %windows_hosts) {
       #
