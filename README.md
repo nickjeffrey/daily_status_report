@@ -14,3 +14,5 @@ Create a cron job similar to the following:
 ```
     5 * * * * /home/nagios/daily_status_report.pl >/dev/null 2>&1 #generate daily report of host health
 ```
+
+# Sample Output
