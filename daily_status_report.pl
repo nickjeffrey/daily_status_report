@@ -4252,7 +4252,7 @@ sub send_report_via_email {
    #
    print "running send_report_via_email subroutine \n" if ($verbose eq "yes");
    #
-   return unless ($hour eq "11"); 		# this script runs hourly to generate an HTML page, but only send the report via email once per day
+   return unless ($hour eq "07"); 		# this script runs hourly to generate an HTML page, but only send the report via email once per day
    open(MAIL,"|$sendmail -t");
    ## Mail Header
    print MAIL "To: $to\n";
