@@ -34,7 +34,7 @@ Last updated 2022-07-13
     <td bgcolor="white"> 
     <br><font color="green"> /    9.5% 
     <br><font color="green"> /apps/oracle    21.0% 
-<table>
+</table><p><hr><p>
 
 
 <table border="1"> 
@@ -48,7 +48,7 @@ Last updated 2022-07-13
    <td bgcolor="white"> 
    <br><font color="green"> C:  9.5% 
    <br><font color="green"> D:  21.0% 
-<table>
+</table><p><hr><p>
 
 
 <table border="1"> 
@@ -59,7 +59,7 @@ Last updated 2022-07-13
    <td bgcolor="green"> OK
    <td bgcolor="green"> OK
    <td bgcolor="green"> OK
-<table>
+</table><p><hr><p>
 
 
 <table border="1"> 
@@ -68,7 +68,7 @@ Last updated 2022-07-13
 <tr><td>hmc01
    <td bgcolor="green"> up 
    <td bgcolor="green"> OK
-<table>
+</table><p><hr><p>
 
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="4"> Brocade fibre channel switches
@@ -77,7 +77,7 @@ Last updated 2022-07-13
    <td bgcolor="green"> up 
    <td bgcolor="green"> Brocade300
    <td bgcolor="green"> OK
-<table>
+</table><p><hr><p>
 
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="3"> NetApp ONTAP Storage Systems
@@ -85,7 +85,7 @@ Last updated 2022-07-13
 <tr><td>hmc01
    <td bgcolor="green"> up 
    <td bgcolor="green"> OK
-<table>
+</table><p><hr><p>
 
 
 
@@ -98,7 +98,7 @@ Last updated 2022-07-13
    <td bgcolor="white"> XX123456
     <td bgcolor="green"> ok
     <td bgcolor="white"> ok
-<table>
+</table><p><hr><p>
 
 
 <table border="1"> 
@@ -113,7 +113,7 @@ Last updated 2022-07-13
     <td bgcolor="green"> 1/1 disks ok
     <td bgcolor="green"> 2/2 ok
     <td bgcolor="green"> 24/24 ok
-<table>
+</table><p><hr><p>
 
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="9"> Lenovo xClarity Service Processors
@@ -129,7 +129,7 @@ Last updated 2022-07-13
     <td bgcolor="green"> CRITICAL
     <td bgcolor="green"> Normal
     <td bgcolor="green"> WARNING
-<table>
+</table><p><hr><p>
 
 
 
@@ -143,7 +143,7 @@ Last updated 2022-07-13
    <td bgcolor="green"> normal
    <td bgcolor="green"> poweredOn
    <td bgcolor="green"> 21C
-<table>
+</table><p><hr><p>
 
 
 <table border="1"> 
@@ -153,6 +153,6 @@ Last updated 2022-07-13
    <td bgcolor="green"> up 
    <td bgcolor="white"> XX123456
    <td bgcolor="green"> ok
-<table>
+</table><p><hr><p>
 
 </pre>
