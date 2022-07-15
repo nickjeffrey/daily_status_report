@@ -32,6 +32,7 @@
 # 2022-07-05	njeffrey        Remove nagios performance data from report 
 # 2022-07-07	njeffrey        Add NetApp ONTAP version to report
 # 2022-07-09	njeffrey        Add local hostname to report output to tell user where the report came from 
+# 2022-07-15	njeffrey        Add how-to instructions at bottom of report
 
 
 # NOTES
@@ -70,7 +71,7 @@ use strict; 				#enforce good coding practices
 
 
 #declare variables
-my ($verbose,$cmd,$oid,$host,$snmpwalk,$snmpget,$ssh,$ping,$localhost);
+my ($verbose,$cmd,$oid,$host,$snmpwalk,$snmpget,$ssh,$ping,$localhost,$monitoring_system_url);
 my (@linux_hostnames,%linux_hosts,@windows_hostnames,%windows_hosts,@aix_hostnames,%aix_hosts,@hmc_hostnames,%hmc_hosts);                               #operating systems
 my (@idrac8_hostnames,%idrac8_hosts,@idrac9_hostnames,%idrac9_hosts,@ibm_imm2_hostnames,%ibm_imm2_hosts,@xclarity_hostnames,%xclarity_hosts,@hpilo4_hostnames,%hpilo4_hosts);               #service processors
 my (@brocade_hostnames,%brocade_hosts,@unisphere_hostnames,%unisphere_hosts,@flashsystem_hostnames,%flashsystem_hosts,@netapp_hostnames,%netapp_hosts,@qnap_hostnames,%qnap_hosts); #SAN storage
@@ -83,18 +84,18 @@ my ($count,$drive_letter,@drive_letters,$mount_point,@mount_points);
 my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
 
-$verbose              = "yes";									#yes/no flag to increase verbosity for debugging
-$ping                 = "/bin/ping";								#location of binary
-$ssh                  = "/usr/bin/ssh";								#location of binary
-$sendmail             = "/usr/sbin/sendmail"; 		 					#location of binary
-$snmpget              = "/usr/bin/snmpget";							#location of binary
-$snmpwalk             = "/usr/bin/snmpwalk";							#location of binary
-$community            = "public";								#SNMP community name
-$output_file          = "/home/nagios/daily_status_report.html";				#location of file
-$config_file          = "/home/nagios/daily_status_report.cfg";					#location of file
-$bgcolor              = "white";								#HTML background color
-$localhost            = `hostname -s`;								#get the local hostname
-
+$verbose               = "yes";									#yes/no flag to increase verbosity for debugging
+$ping                  = "/bin/ping";								#location of binary
+$ssh                   = "/usr/bin/ssh";								#location of binary
+$sendmail              = "/usr/sbin/sendmail"; 		 					#location of binary
+$snmpget               = "/usr/bin/snmpget";							#location of binary
+$snmpwalk              = "/usr/bin/snmpwalk";							#location of binary
+$community             = "public";								#SNMP community name
+$output_file           = "/home/nagios/daily_status_report.html";				#location of file
+$config_file           = "/home/nagios/daily_status_report.cfg";					#location of file
+$bgcolor               = "white";								#HTML background color
+$localhost             = `hostname -s`;								#get the local hostname
+$monitoring_system_url = "";									#initialize to avoid undef errors
 
 
 
@@ -171,6 +172,10 @@ sub read_config_file {
       $to                    = $1              if (/^to=([a-zA-Z0-9,_\-\@\.]+)/);		#find line in config file
       $from                  = $1              if (/^from=([a-zA-Z0-9_\-\@\.]+)/);		#find line in config file
       $subject               = $1              if (/^subject=([a-zA-Z0-9 _\-\@]+)/);		#find line in config file
+      #
+      # URL of monitoring system (nagios, PRTG, etc)
+      #
+      $monitoring_system_url = $1              if (/^monitoring_system_url=([a-zA-Z0-9:,_\-\/\.]+)/);		#find line in config file
       #
       # device hostnames
       #
@@ -2564,7 +2569,23 @@ sub get_qnap_status {
       #
       if ( ! -e "$nagios_tempfile" ) {
          print "   $nagios_tempfile file not found, waiting for 5 minutes to see if it appears... \n" if ($verbose eq "yes");
-         sleep 300;
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 4 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 3 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 2 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 1 minute  to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
       }
       if ( ! -e "$nagios_tempfile" ) {
          $qnap_hosts{$key}{health} = "UNKNOWN, cannot find nagios check output in file: $nagios_tempfile";    			#save value to hash
@@ -3115,6 +3136,26 @@ sub get_hmc_status {
       #
       # run this section if the nagios temporary file cannot be found, which would indicate a problem with nagios
       #
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 5 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 4 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 3 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 2 minutes to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
+      if ( ! -e "$nagios_tempfile" ) {
+         print "   $nagios_tempfile file not found, waiting for 1 minute  to see if it appears... \n" if ($verbose eq "yes");
+         sleep 60;
+      }
       if ( ! -e "$nagios_tempfile" ) {
          $hmc_hosts{$key}{health} = "UNKNOWN, cannot find nagios check output in file: $nagios_tempfile";                       #save value to hash
          print "   hmc_health:$hmc_hosts{$key}{health} \n" if ($verbose eq "yes");
@@ -4243,7 +4284,13 @@ sub generate_html_report_footer {
    #
    print "running generate_html_report_footer subroutine \n" if ($verbose eq "yes");
    #
-   print OUT "</body></html> \n";
+   print OUT "<hr> \n";
+   print OUT "<br><b>How to use this report</b> \n";
+   print OUT "<br><ul><li>If everything is <font color=green> green</font>, all is good, and no further action is needed. \n";
+   print OUT "<br><li>If you see any <font color=red>red</font> or yellow warnings, please check the monitoring system for additional detail: $monitoring_system_url \n";
+   print OUT "<br><li>This report shows performance metrics like CPU/RAM/paging at a single moment in time.  If this report is reporting something like high CPU, go check that machine to see if it was just a brief spike in high CPU, or is indicative of a long-running problem. \n";
+   print OUT "<br><li>This report is intentionally a very high level snapshot of system health at a specific point in time.  It is not a substitute for a monitoring system like nagios, PRTG, etc.  For additional detail, please check the monitoring system at $monitoring_system_url  \n";
+   print OUT "</ul></body></html> \n";
    close OUT;										#close filehandle
 } 											#end of subroutine
 
@@ -4321,23 +4368,23 @@ get_mikrotik_swos_status;
 #
 # generate HTML report of all devices that were found
 #
-generate_html_report_header;		#just create the initial HTML header for the report
-generate_html_report_linux_hosts;	#if any linux       hosts exist, add them to the report 
-generate_html_report_aix_hosts;                 #if any aix         hosts exist, add them to the report
-generate_html_report_windows_hosts;	#if any windows     hosts exist, add them to the report 
-generate_html_report_idrac9_hosts;	#if any idrac9      hosts exist, add them to the report 
-generate_html_report_idrac8_hosts;	#if any idrac8      hosts exist, add them to the report 
-generate_html_report_hpilo4_hosts;	#if any hpilo4      hosts exist, add them to the report 
-generate_html_report_ibm_imm2_hosts;	#if any IBM IMM2    hosts exist, add them to the report 
-generate_html_report_xclarity_hosts;	#if any xclarity    hosts exist, add them to the report 
-generate_html_report_hmc_hosts;                 #if any hmc         hosts exist, add them to the report
-generate_html_report_brocade_hosts;	#if any brocade     hosts exist, add them to the report 
-generate_html_report_unisphere_hosts;	#if any unisphere   hosts exist, add them to the report 
-generate_html_report_flashsystem_hosts;	#if any flashsystem hosts exist, add them to the report 
-generate_html_report_netapp_hosts;              #if any netapp      hosts exist, add them to the report
-generate_html_report_qnap_hosts;	#if any qnap        hosts exist, add them to the report 
-generate_html_report_ciscoios_hosts;            #if any ciscoios    hosts exist, add them to the report
-generate_html_report_fortigate_hosts;	#if any fortigate   hosts exist, add them to the report 
+generate_html_report_header;			#just create the initial HTML header for the report
+generate_html_report_linux_hosts;		#if any linux       hosts exist, add them to the report 
+generate_html_report_aix_hosts;         	#if any aix         hosts exist, add them to the report
+generate_html_report_windows_hosts;		#if any windows     hosts exist, add them to the report 
+generate_html_report_idrac9_hosts;		#if any idrac9      hosts exist, add them to the report 
+generate_html_report_idrac8_hosts;		#if any idrac8      hosts exist, add them to the report 
+generate_html_report_hpilo4_hosts;		#if any hpilo4      hosts exist, add them to the report 
+generate_html_report_ibm_imm2_hosts;		#if any IBM IMM2    hosts exist, add them to the report 
+generate_html_report_xclarity_hosts;		#if any xclarity    hosts exist, add them to the report 
+generate_html_report_hmc_hosts;        	 	#if any hmc         hosts exist, add them to the report
+generate_html_report_brocade_hosts;		#if any brocade     hosts exist, add them to the report 
+generate_html_report_unisphere_hosts;		#if any unisphere   hosts exist, add them to the report 
+generate_html_report_flashsystem_hosts;		#if any flashsystem hosts exist, add them to the report 
+generate_html_report_netapp_hosts;      	#if any netapp      hosts exist, add them to the report
+generate_html_report_qnap_hosts;		#if any qnap        hosts exist, add them to the report 
+generate_html_report_ciscoios_hosts;    	#if any ciscoios    hosts exist, add them to the report
+generate_html_report_fortigate_hosts;		#if any fortigate   hosts exist, add them to the report 
 generate_html_report_mikrotik_swos_hosts;       #if any hmc         hosts exist, add them to the report
-generate_html_report_footer;		#now that all hosts have been added to the report, add the HTML footer
+generate_html_report_footer;			#now that all hosts have been added to the report, add the HTML footer
 send_report_via_email;
