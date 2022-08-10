@@ -33,6 +33,7 @@
 # 2022-07-07	njeffrey        Add NetApp ONTAP version to report
 # 2022-07-09	njeffrey        Add local hostname to report output to tell user where the report came from 
 # 2022-07-15	njeffrey        Add how-to instructions at bottom of report
+# 2022-08-09	njeffrey        Add how-to instructions at bottom of report
 
 
 # NOTES
@@ -76,7 +77,7 @@ my (@linux_hostnames,%linux_hosts,@windows_hostnames,%windows_hosts,@aix_hostnam
 my (@idrac8_hostnames,%idrac8_hosts,@idrac9_hostnames,%idrac9_hosts,@ibm_imm2_hostnames,%ibm_imm2_hosts,@xclarity_hostnames,%xclarity_hosts,@hpilo4_hostnames,%hpilo4_hosts);               #service processors
 my (@brocade_hostnames,%brocade_hosts,@unisphere_hostnames,%unisphere_hosts,@flashsystem_hostnames,%flashsystem_hosts,@netapp_hostnames,%netapp_hosts,@qnap_hostnames,%qnap_hosts); #SAN storage
 my (@ciscoios_hostnames,%ciscoios_hosts,@fortigate_hostnames,%fortigate_hosts,@mikrotik_swos_hostnames,%mikrotik_swos_hosts);                           #networking 
-
+my (@san_multipath_linux_hostnames,%san_multipath_linux_hosts);
 my ($key,$config_file,$output_file,$bgcolor,$fontcolor);
 my ($to,$from,$subject,$sendmail);
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst); 
@@ -179,20 +180,21 @@ sub read_config_file {
       #
       # device hostnames
       #
-      @aix_hostnames         = split(',' , $1) if (/^aix_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @hmc_hostnames         = split(',' , $1) if (/^hmc_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @linux_hostnames       = split(',' , $1) if (/^linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @windows_hostnames     = split(',' , $1) if (/^windows_hostnames=([a-zA-Z0-9,_\-\.]+)/);  #find line in config file
-      @xclarity_hostnames    = split(',' , $1) if (/^xclarity_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @ibm_imm2_hostnames    = split(',' , $1) if (/^ibm_imm2_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @hpilo4_hostnames      = split(',' , $1) if (/^hpilo4_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @brocade_hostnames     = split(',' , $1) if (/^brocade_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	#find line in config file
-      @flashsystem_hostnames = split(',' , $1) if (/^flashsystem_hostnames=([a-zA-Z0-9,_\-\.]+)/); #find line in config file
-      @unisphere_hostnames   = split(',' , $1) if (/^unisphere_hostnames=([a-zA-Z0-9,_\-\.]+)/);#find line in config file
-      @idrac8_hostnames      = split(',' , $1) if (/^idrac8_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @idrac9_hostnames      = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @qnap_hostnames        = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @netapp_hostnames      = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @aix_hostnames                 = split(',' , $1) if (/^aix_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @hmc_hostnames                 = split(',' , $1) if (/^hmc_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @linux_hostnames               = split(',' , $1) if (/^linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @san_multipath_linux_hostnames = split(',' , $1) if (/^san_multipath_linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @windows_hostnames             = split(',' , $1) if (/^windows_hostnames=([a-zA-Z0-9,_\-\.]+)/);  #find line in config file
+      @xclarity_hostnames            = split(',' , $1) if (/^xclarity_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @ibm_imm2_hostnames            = split(',' , $1) if (/^ibm_imm2_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @hpilo4_hostnames              = split(',' , $1) if (/^hpilo4_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @brocade_hostnames             = split(',' , $1) if (/^brocade_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	#find line in config file
+      @flashsystem_hostnames         = split(',' , $1) if (/^flashsystem_hostnames=([a-zA-Z0-9,_\-\.]+)/); #find line in config file
+      @unisphere_hostnames           = split(',' , $1) if (/^unisphere_hostnames=([a-zA-Z0-9,_\-\.]+)/);#find line in config file
+      @idrac8_hostnames              = split(',' , $1) if (/^idrac8_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       #
       # SNMP community strings
       #
@@ -260,6 +262,15 @@ sub define_hosts {
       $linux_hosts{$host}{cpu_load} = 0;							#initialize hash element
       print "      found linux hostname $linux_hosts{$host}{hostname} \n" if ($verbose eq "yes");
    }												#end of foreach loop
+   # build a hash for all bare-metal linux hostnames with iSCSI or Fibre Channel SAN paths
+   # Please note that this section is only for physical Linux boxes with SAN storage, not virtual machines.
+   #
+   foreach $host (@san_multipath_linux_hostnames) {
+      $san_multipath_linux_hosts{$host}{hostname} = $host;					#initialize hash element
+      $san_multipath_linux_hosts{$host}{ping}     = "unknown";					#initialize hash element
+      print "      found linux hostname $linux_hosts{$host}{hostname} \n" if ($verbose eq "yes");
+   }												#end of foreach loop
+   #
    #
    # build a hash for all windows hostnames we want to check
    #
@@ -432,6 +443,19 @@ sub ping_hosts {
          $linux_hosts{$key}{ping} = "down" if ( /100\% packet loss/ ); 				#look for ping reply
       }                                                                    			#end of while loop
       print "      $linux_hosts{$key}{hostname} ping status is $linux_hosts{$key}{ping} \n" if ($verbose eq "yes");
+      close IN;                                                          		  	#close filehandle
+   } 												#end of foreach loop
+   # ping all the bare-metal linux hosts with SAN storage
+   #
+   foreach $key (sort keys %san_multipath_linux_hosts) {
+      $cmd = "$ping -c 1 $san_multipath_linux_hosts{$key}{hostname}";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                              			#run command
+      while (<IN>) {                                                      		 	#read a line from the command output
+         $san_multipath_linux_hosts{$key}{ping} = "up"   if ( / 0\% packet loss/  ); 		#look for ping reply
+         $san_multipath_linux_hosts{$key}{ping} = "down" if ( /100\% packet loss/ );		#look for ping reply
+      }                                                                    			#end of while loop
+      print "      $san_multipath_linux_hosts{$key}{hostname} ping status is $san_multipath_linux_hosts{$key}{ping} \n" if ($verbose eq "yes");
       close IN;                                                          		  	#close filehandle
    } 												#end of foreach loop
    #
@@ -986,6 +1010,7 @@ sub get_ram_util_linux {
 
 
 
+
 sub get_ram_util_windows {
    #
    print "running get_ram_util_windows subroutine \n" if ($verbose eq "yes");
@@ -1283,6 +1308,7 @@ sub get_paging_space_util_linux {
 
 
 
+
 sub get_paging_space_util_windows {
    #
    print "running get_paging_space_util_windows subroutine \n" if ($verbose eq "yes");
@@ -1432,8 +1458,7 @@ sub get_paging_space_util_windows {
 
 
 
-
-sub get_windows_drive_util{
+sub get_windows_drive_util {
    #
    print "running get_windows_drive_util subroutine \n" if ($verbose eq "yes");
    #
@@ -1732,12 +1757,7 @@ sub get_windows_drive_util{
 
 
 
-
-
-
-
-
-sub get_linux_fs_util{
+sub get_linux_fs_util {
    #
    print "running get_linux_fs_util subroutine \n" if ($verbose eq "yes");
    #
@@ -1961,6 +1981,49 @@ sub get_linux_fs_util{
       } 												#end of for loop
    } 													#end of foreach loop
 } 													#end of subroutine
+
+
+
+
+sub get_san_multipath_linux_status {
+   #
+   print "running get_san_multipath_linux_status subroutine \n" if ($verbose eq "yes");
+   #
+   # query all bare-metal Linux boxes that have iSCSI and/or Fibre Channel SAN paths using the built-in Linux dm-multipath package
+   # HINT: this subroutine just execute an existing nagios check that is assumed to already exist.
+   #       In other words, it is assumed the local machine is already monitoring Linux SAN paths via nagios, and this check just grabs the current status from that nagios check.
+   #       The output of the /usr/local/nagios/libexec/check_linux_multipath script will look similar to the following:
+   #       dm-multipath SAN disk paths OK - active:12 passive:0 faulty:0 shaky:0 | active=12;;;; passive=0;;;; faulty=0;;;; shaky=0;;;;
+   #
+   foreach $key (sort keys %san_multipath_linux_hosts) {
+      #
+      # initialize hash elements
+      $san_multipath_linux_hosts{$key}{health}  = "UNKNOWN";   				#initialize hash element
+      $san_multipath_linux_hosts{$key}{active}  = 0;    				#initialize hash element
+      $san_multipath_linux_hosts{$key}{passive} = 0;    				#initialize hash element
+      $san_multipath_linux_hosts{$key}{faulty}  = 0;    				#initialize hash element
+      $san_multipath_linux_hosts{$key}{shaky}   = 0;    				#initialize hash element
+      #
+      #
+      next unless ( $san_multipath_linux_hosts{$key}{ping} eq "up" );                   #skip hosts that do not respond to ping
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $san_multipath_linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_multipath";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                          		        #open filehandle from command output
+      while (<IN>) {                                                            	#read a line from the command output
+         $san_multipath_linux_hosts{$key}{health}  = "OK"       if ( /SAN disk paths OK/       );
+         $san_multipath_linux_hosts{$key}{health}  = "WARN"     if ( /SAN disk paths WARN/     );
+         $san_multipath_linux_hosts{$key}{health}  = "CRITICAL" if ( /SAN disk paths CRITICAL/ );
+         $san_multipath_linux_hosts{$key}{health}  = "UNKNOWN"  if ( /SAN disk paths UNKNOWN/  );
+         $san_multipath_linux_hosts{$key}{active}  = $1         if ( /active:([0-9]+)/         );
+         $san_multipath_linux_hosts{$key}{passive} = $1         if ( /passive:([0-9]+)/        );
+         $san_multipath_linux_hosts{$key}{faulty}  = $1         if ( /faulty:([0-9]+)/         );
+         $san_multipath_linux_hosts{$key}{shaky}   = $1         if ( /shaky:([0-9]+)/          );
+         print "   health:$san_multipath_linux_hosts{$key}{health} active:$san_multipath_linux_hosts{$key}{active} passive:$san_multipath_linux_hosts{$key}{passive} faulty:$san_multipath_linux_hosts{$key}{faulty} shaky:$san_multipath_linux_hosts{$key}{shaky} \n" if ($verbose eq "yes");
+      }                                                                         	#end of while loop
+      close IN;                                                                 	#close filehandle
+   } 											#end of foreach loop
+} 											#end of subroutine
+
 
 
 
@@ -3308,6 +3371,77 @@ sub generate_html_report_linux_hosts {
 
 
 
+sub generate_html_report_san_multipath_linux_hosts {
+   #
+   print "running generate_html_report_san_multipath_linux_hosts subroutine \n" if ($verbose eq "yes");
+   #
+   #
+   return unless (@san_multipath_linux_hostnames);					#break out of subroutine if no hostnames are defined
+   # Create the HTML table for bare-metal Linux hosts with iSCSI and/or Fibre Channel SAN paths
+   #
+   print OUT "<table border=1> \n";
+   print OUT "<tr bgcolor=gray><td colspan=7> Bare-metal Linux Hosts with iSCSI and/or Fibre Channel SAN paths\n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Multipath Health <td> active<td> passive <td> faulty <td> shaky\n";
+   foreach $key (sort keys %san_multipath_linux_hosts) {
+      #
+      # print hostname field in table row
+      #
+      $bgcolor = "white"; 
+      print OUT "<tr><td>$san_multipath_linux_hosts{$key}{hostname} \n" ;
+      #
+      # print ping status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $san_multipath_linux_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"   if ( $san_multipath_linux_hosts{$key}{ping} eq "down" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $san_multipath_linux_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print health status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $san_multipath_linux_hosts{$key}{health} eq "OK");
+      $bgcolor = "red"    if (  $san_multipath_linux_hosts{$key}{health} ne "OK");
+      print OUT "    <td bgcolor=$bgcolor> $san_multipath_linux_hosts{$key}{health} \n";
+      #
+      # print the number of active SAN paths in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      print OUT "   <td bgcolor=$bgcolor> $san_multipath_linux_hosts{$key}{active} \n";
+      #
+      # print the number of passive SAN paths in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      print OUT "   <td bgcolor=$bgcolor> $san_multipath_linux_hosts{$key}{passive} \n";
+      #
+      # print the number of faulty SAN paths in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $san_multipath_linux_hosts{$key}{faulty} == 0);
+      $bgcolor = "red"    if (  $san_multipath_linux_hosts{$key}{faulty} >  0);
+      print OUT "   <td bgcolor=$bgcolor> $san_multipath_linux_hosts{$key}{faulty} \n";
+      #
+      # print the number of shaky SAN paths in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $san_multipath_linux_hosts{$key}{shaky} == 0);
+      $bgcolor = "red"    if (  $san_multipath_linux_hosts{$key}{shaky} >  0);
+      print OUT "   <td bgcolor=$bgcolor> $san_multipath_linux_hosts{$key}{shaky} \n";
+   } 											#end of foreach loop
+   # print HTML table footer 
+   print OUT "</table><p>\&nbsp\;</p> \n";
+}											#end of subroutine
+
+
+
+
 
 
 sub generate_html_report_windows_hosts {
@@ -4304,7 +4438,7 @@ sub send_report_via_email {
    #
    print "running send_report_via_email subroutine \n" if ($verbose eq "yes");
    #
-   return unless ($hour eq "07"); 		# this script runs hourly to generate an HTML page, but only send the report via email once per day
+   return unless ($hour eq "18"); 		# this script runs hourly to generate an HTML page, but only send the report via email once per day
    open(MAIL,"|$sendmail -t");
    ## Mail Header
    print MAIL "To: $to\n";
@@ -4341,6 +4475,7 @@ get_paging_space_util_linux;
 get_paging_space_util_windows;
 get_windows_drive_util;
 get_linux_fs_util;
+get_san_multipath_linux_status;
 get_aix_status;
 #
 # check service processors
@@ -4370,21 +4505,22 @@ get_mikrotik_swos_status;
 #
 generate_html_report_header;			#just create the initial HTML header for the report
 generate_html_report_linux_hosts;		#if any linux       hosts exist, add them to the report 
-generate_html_report_aix_hosts;         	#if any aix         hosts exist, add them to the report
-generate_html_report_windows_hosts;		#if any windows     hosts exist, add them to the report 
-generate_html_report_idrac9_hosts;		#if any idrac9      hosts exist, add them to the report 
-generate_html_report_idrac8_hosts;		#if any idrac8      hosts exist, add them to the report 
-generate_html_report_hpilo4_hosts;		#if any hpilo4      hosts exist, add them to the report 
-generate_html_report_ibm_imm2_hosts;		#if any IBM IMM2    hosts exist, add them to the report 
-generate_html_report_xclarity_hosts;		#if any xclarity    hosts exist, add them to the report 
-generate_html_report_hmc_hosts;        	 	#if any hmc         hosts exist, add them to the report
-generate_html_report_brocade_hosts;		#if any brocade     hosts exist, add them to the report 
-generate_html_report_unisphere_hosts;		#if any unisphere   hosts exist, add them to the report 
-generate_html_report_flashsystem_hosts;		#if any flashsystem hosts exist, add them to the report 
-generate_html_report_netapp_hosts;      	#if any netapp      hosts exist, add them to the report
-generate_html_report_qnap_hosts;		#if any qnap        hosts exist, add them to the report 
-generate_html_report_ciscoios_hosts;    	#if any ciscoios    hosts exist, add them to the report
-generate_html_report_fortigate_hosts;		#if any fortigate   hosts exist, add them to the report 
-generate_html_report_mikrotik_swos_hosts;       #if any hmc         hosts exist, add them to the report
+generate_html_report_san_multipath_linux_hosts;	#if any bare-metal linux hosts exist, add them to the report 
+generate_html_report_aix_hosts;         	#if any aix              hosts exist, add them to the report
+generate_html_report_windows_hosts;		#if any windows          hosts exist, add them to the report 
+generate_html_report_idrac9_hosts;		#if any idrac9           hosts exist, add them to the report 
+generate_html_report_idrac8_hosts;		#if any idrac8           hosts exist, add them to the report 
+generate_html_report_hpilo4_hosts;		#if any hpilo4           hosts exist, add them to the report 
+generate_html_report_ibm_imm2_hosts;		#if any IBM IMM2         hosts exist, add them to the report 
+generate_html_report_xclarity_hosts;		#if any xclarity         hosts exist, add them to the report 
+generate_html_report_hmc_hosts;        	 	#if any hmc              hosts exist, add them to the report
+generate_html_report_brocade_hosts;		#if any brocade          hosts exist, add them to the report 
+generate_html_report_unisphere_hosts;		#if any unisphere        hosts exist, add them to the report 
+generate_html_report_flashsystem_hosts;		#if any flashsystem      hosts exist, add them to the report 
+generate_html_report_netapp_hosts;      	#if any netapp           hosts exist, add them to the report
+generate_html_report_qnap_hosts;		#if any qnap             hosts exist, add them to the report 
+generate_html_report_ciscoios_hosts;    	#if any ciscoios         hosts exist, add them to the report
+generate_html_report_fortigate_hosts;		#if any fortigate        hosts exist, add them to the report 
+generate_html_report_mikrotik_swos_hosts;       #if any hmc              hosts exist, add them to the report
 generate_html_report_footer;			#now that all hosts have been added to the report, add the HTML footer
 send_report_via_email;
