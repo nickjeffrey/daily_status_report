@@ -33,7 +33,7 @@
 # 2022-07-07	njeffrey        Add NetApp ONTAP version to report
 # 2022-07-09	njeffrey        Add local hostname to report output to tell user where the report came from 
 # 2022-07-15	njeffrey        Add how-to instructions at bottom of report
-# 2022-08-09	njeffrey        Add how-to instructions at bottom of report
+# 2022-08-09	njeffrey        Add get_san_multipathing_linux subroutine
 
 
 # NOTES
