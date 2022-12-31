@@ -12,7 +12,7 @@ Edit the .cfg to match your local environment to/from email addresses, hostnames
 
 Create a cron job similar to the following:
 ```
-    5 * * * * /home/nagios/daily_status_report.pl >/dev/null 2>&1 #generate daily report of host health
+    5 7 * * * /home/nagios/daily_status_report.pl >/dev/null 2>&1 #generate daily report of host health
 ```
 
 # Sample Output
@@ -73,7 +73,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="4"> Brocade fibre channel switches
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Model <td> Health
-<tr><td>hmc01
+<tr><td>fcsw01
    <td bgcolor="green"> up 
    <td bgcolor="green"> Brocade300
    <td bgcolor="green"> OK
@@ -82,7 +82,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="3"> NetApp ONTAP Storage Systems
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Health
-<tr><td>hmc01
+<tr><td>netapp01
    <td bgcolor="green"> up 
    <td bgcolor="green"> OK
 </table><p><hr><p>
@@ -92,7 +92,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="6"> Dell iDRAC9 Service Processors
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Model <td> Service Tag<td> System Status <td> Storage Status
-<tr><td>idrac01 
+<tr><td>server01-idrac
    <td bgcolor="green"> up 
    <td bgcolor="green"> PowerEdge R730
    <td bgcolor="white"> XX123456
@@ -104,7 +104,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="9"> Hewlett Packard ILO4 Service Processors
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Power Redundancy <td> Fans<td> Ambient Temperature <td> Physical Disks <td> Logical Disks <td> Processors <td Memory Modules
-<tr><td>idrac01 
+<tr><td>server01-ilo
    <td bgcolor="green"> up 
    <td bgcolor="green"> ok
    <td bgcolor="white"> 8/8 fans ok
@@ -118,7 +118,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="9"> Lenovo xClarity Service Processors
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Model <td> Serial <td> Cooling Devices <td> Ambient Temperature <td> Power Modules <td> Local Storage <td> Processors <td Memory <td> System Health
-<tr><td>server1-xclarity
+<tr><td>server01-xclarity
    <td bgcolor="green"> up 
    <td bgcolor="green"> ModelXYX123
    <td bgcolor="white"> J101XXXXX 
@@ -136,7 +136,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="4"> IBM xSeries IMM2 Service Processors
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Model <td> Serial <td> System Health <td> Power Status <td> Ambient Temperature
-<tr><td>server2-imm2 
+<tr><td>server2-imm
    <td bgcolor="green"> up 
    <td bgcolor="white"> 7914-AC1
    <td bgcolor="green"> E24XXXX
@@ -149,7 +149,7 @@ Last updated 2022-07-13
 <table border="1"> 
 <tr bgcolor="gray"><td colspan="4"> Dell EMC UniSphere Storage Manager Hosts
 <tr bgcolor="gray"><td> Hostname <td> Ping <td> Service Tag<td> System Status
-<tr><td>idrac01 
+<tr><td>emsstorage01 
    <td bgcolor="green"> up 
    <td bgcolor="white"> XX123456
    <td bgcolor="green"> ok
