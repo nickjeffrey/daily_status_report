@@ -5,7 +5,7 @@
 # ------------------
 # add support for --long-switches
 # add a check for name resolution failure
-# add a check to catch thesituation when ping is responding, but SNMP is not working.  Create a hash element something like $blah{$key+{snmp} = "ok"
+# add a check to catch the situation when ping is responding, but SSH to Linux/AIX/xClarity is not working.  Create a hash element something like $blah{$key}{ssh} = "ok"
 
 
 # CHANGE LOG
@@ -34,6 +34,15 @@
 # 2022-07-09	njeffrey        Add local hostname to report output to tell user where the report came from 
 # 2022-07-15	njeffrey        Add how-to instructions at bottom of report
 # 2022-08-09	njeffrey        Add get_san_multipathing_linux subroutine
+# 2022-10-03	njeffrey        Add check for HP SmartArray  RAID controller for HP ILO4 devices
+# 2022-10-18	njeffrey        Add check for working SNMP on Linux and Windows hosts
+# 2022-10-18	njeffrey        Add check for working SNMP on EMC Unispere, Dell iDRAC9, HP ILO, Brocade, NetApp Cisco IOS, MikroTik SwOS, FortiGate
+# 2022-10-18	njeffrey        Add check for working SSH on Lenovo xClarity hosts
+# 2022-11-27	njeffrey        Add SSH-based checks for Linux hosts
+# 2022-11-27	njeffrey        Add SSH-based checks for Linux daemons by calling check_linux_daemons
+# 2022-11-27	njeffrey        Add SSH-based checks for Oracle databases by calling check_oracle_instances
+# 2023-03-31	njeffrey        Add column to Linux hosts output table showing status of non-root user accounts
+
 
 
 # NOTES
@@ -41,17 +50,17 @@
 # perl script to generate HTML report suitable for displaying on a web page or sending via email
 # This report is designed to be used as a high-level validation that all hosts are up and healthy
 # This script will report on the health of the following:
-#  - Windows hosts                         (via SNMP)
-#  - Linux hosts                           (via SNMP)
-#  - Dell iDRAC8                           (via SSH)
-#  - Dell iDRAC9                           (via SNMP)
-#  - EMC UniSphere storage systems         (via SNMP)
-#  - IBM xSeries IMM2 service processors   (via SNMP)
-#  - Lenovo xClarity service processors    (via SSH)
-#  - Brocade fibre channel switches        (via SNMP)
-#  - IBM FlashSystem storage               (reads text file created by nagios running on same host)
-#  - Hewlett Packard ILO4 service procssor (via SNMP)
-#  - QNAP NAS devices                      (via SNMP)
+#  - Windows hosts                          (via SNMP)
+#  - Linux hosts                            (via SNMP)
+#  - Dell iDRAC8                            (via SSH)
+#  - Dell iDRAC9                            (via SNMP)
+#  - EMC UniSphere storage systems          (via SNMP)
+#  - IBM xSeries IMM2 service processors    (via SNMP)
+#  - Lenovo xClarity service processors     (via SSH)
+#  - Brocade fibre channel switches         (via SNMP)
+#  - IBM FlashSystem storage                (reads text file created by nagios running on same host)
+#  - Hewlett Packard ILO4 service procssor  (via SNMP)
+#  - QNAP NAS devices                       (via SNMP)
 #  - AIX hosts                              (via SSH-based nagios checks)
 #  - IBM Hardware Management Consoles       (reads text fiel created by nagios running on same host)
 #  - MikroTik SwOS hosts                    (via SNMP-based nagios checks)
@@ -60,8 +69,8 @@
 
 # ASSUMPTIONS
 # -----------
-# It is assumed that this script is run hourly via cron from the nagios userid.  Example:
-#    5 * * * * /home/nagios/daily_check.pl >/dev/null 2>&1 #generate daily report of host health
+# It is assumed that this script is run daily via cron from the nagios userid.  Example:
+#    5 7 * * * /home/nagios/daily_check.pl >/dev/null 2>&1 #generate daily report of host health
 # 
 # It is assumed that all hosts will respond to ping, and health metrics can be retrieved either by SNMP or SSH
 # 
@@ -259,7 +268,8 @@ sub define_hosts {
    foreach $host (@linux_hostnames) {
       $linux_hosts{$host}{hostname} = $host;							#initialize hash element
       $linux_hosts{$host}{ping}     = "unknown";						#initialize hash element
-      $linux_hosts{$host}{cpu_load} = 0;							#initialize hash element
+      $linux_hosts{$host}{ssh}      = "unknown";						#initialize hash element
+      $linux_hosts{$host}{snmp}     = "unknown";						#initialize hash element
       print "      found linux hostname $linux_hosts{$host}{hostname} \n" if ($verbose eq "yes");
    }												#end of foreach loop
    # build a hash for all bare-metal linux hostnames with iSCSI or Fibre Channel SAN paths
@@ -277,7 +287,7 @@ sub define_hosts {
    foreach $host (@windows_hostnames) {
       $windows_hosts{$host}{hostname} = $host;							#initialize hash element
       $windows_hosts{$host}{ping}     = "unknown";						#initialize hash element
-      $windows_hosts{$host}{cpu_load} = 0;							#initialize hash element
+      $windows_hosts{$host}{snmp}     = "unknown";						#initialize hash element
       print "      found windows hostname $windows_hosts{$host}{hostname} \n" if ($verbose eq "yes");
    }												#end of foreach loop
    #
@@ -711,15 +721,22 @@ sub verify_os_linux {
       #
       #
       #
-      $linux_hosts{$key}{os} = "unknown";							#initialize hash element
+      $linux_hosts{$key}{os}   = "unknown";							#initialize hash element
+      $linux_hosts{$key}{snmp} = "unknown";   							#initialize hash element
       next unless ( $linux_hosts{$key}{ping} eq "up" );						#skip hosts that do not respond to ping
       $oid = ".1.3.6.1.2.1.1.1.0";								#SNMP OID for hrProcessorLoad
       $cmd = "$snmpget -v 1 -c $community $linux_hosts{$key}{hostname} $oid";			#define command to be run
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                 			          	#open filehandle using command output
       while (<IN>) {                                                   	 			#read a line from the command output
-         $linux_hosts{$key}{os} = "Linux"   if ( /Linux/   ); 					#look for operating system type in sysDescr
-         $linux_hosts{$key}{os} = "Windows" if ( /Windows/ ); 					#look for operating system type in sysDescr
+         if ( /Linux/ ) {									#look for operating system type in sysDescr
+            $linux_hosts{$key}{os}   = "Linux";  						#define operating system
+            $linux_hosts{$key}{snmp} = "ok";   							#this also confirms we have working SNMP
+         }
+         if ( /Windows/ ) {									#look for operating system type in sysDescr
+            $linux_hosts{$key}{os}   = "Windows";						#define operating system
+            $linux_hosts{$key}{snmp} = "ok";  							#this also confirms we have working SNMP
+         }
       }                                                                				#end of while loop
       close IN;                                                        			 	#close filehandle
       print "   host:$linux_hosts{$key}{hostname} OS:$linux_hosts{$key}{os}  \n" if ($verbose eq "yes");
@@ -752,15 +769,22 @@ sub verify_os_windows {
       #
       #
       #
-      $windows_hosts{$key}{os} = "unknown";							#initialize hash element
+      $windows_hosts{$key}{os}   = "unknown";							#initialize hash element
+      $windows_hosts{$key}{snmp} = "unknown";  							#initialize hash element
       next unless ( $windows_hosts{$key}{ping} eq "up" );					#skip hosts that do not respond to ping
       $oid = ".1.3.6.1.2.1.1.1.0";								#SNMP OID for hrProcessorLoad
       $cmd = "$snmpget -v 1 -c $community $windows_hosts{$key}{hostname} $oid";			#define command to be run
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                 			          	#open filehandle using command output
       while (<IN>) {                                                   	 			#read a line from the command output
-         $windows_hosts{$key}{os} = "Linux"   if ( /Linux/   ); 				#look for operating system type in sysDescr
-         $windows_hosts{$key}{os} = "Windows" if ( /Windows/ ); 				#look for operating system type in sysDescr
+         if ( /Linux/ ) {									#look for operating system type in sysDescr
+            $windows_hosts{$key}{os}   = "Linux";  						#define operating system
+            $windows_hosts{$key}{snmp} = "ok";  						#this also confirms we have working SNMP
+         }
+         if ( /Windows/ ) {									#look for operating system type in sysDescr
+            $windows_hosts{$key}{os}   = "Windows";						#define operating system
+            $windows_hosts{$key}{snmp} = "ok";  						#this also confirms we have working SNMP
+         }
       }                                                                				#end of while loop
       close IN;                                                        			 	#close filehandle
       print "   host:$windows_hosts{$key}{hostname} OS:$windows_hosts{$key}{os}  \n" if ($verbose eq "yes");
@@ -904,7 +928,7 @@ sub get_ram_util_linux {
    # HOST-RESOURCES-MIB::hrStorageUsed.1 = INTEGER: 85040189
    # HOST-RESOURCES-MIB::hrStorageUsed.2 = INTEGER: 1571142078
    # HOST-RESOURCES-MIB::hrStorageUsed.3 = INTEGER: 256187
-   # HOST-RESOURCES-MIB::hrStorageUsed.4 = INTEGER: 263060 				<--- number of used allocation units (multiple by size to get used bytes)
+   # HOST-RESOURCES-MIB::hrStorageUsed.4 = INTEGER: 263060 					<--- number of used allocation units (multiple by size to get used bytes)
    # HOST-RESOURCES-MIB::hrStorageAllocationFailures.1 = Counter32: 0
    # HOST-RESOURCES-MIB::hrStorageAllocationFailures.2 = Counter32: 0
    # HOST-RESOURCES-MIB::hrStorageAllocationFailures.3 = Counter32: 0
@@ -1057,10 +1081,10 @@ sub get_ram_util_windows {
    # HOST-RESOURCES-MIB::hrStorageAllocationFailures.1 = Counter32: 0
    # HOST-RESOURCES-MIB::hrStorageAllocationFailures.2 = Counter32: 0
    # HOST-RESOURCES-MIB::hrStorageAllocationFailures.3 = Counter32: 0
-   # HOST-RESOURCES-MIB::hrStorageAllocationFailures.4 = Counter32: 0  				<---- should always be zero
+   # HOST-RESOURCES-MIB::hrStorageAllocationFailures.4 = Counter32: 0  					<---- should always be zero
    #
    #
-   $community = $community_windows;                                            			#set the SNMP community string for this device type
+   $community = $community_windows;                                            				#set the SNMP community string for this device type
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %windows_hosts) {
@@ -2094,11 +2118,12 @@ sub get_dell_idrac9_status {
    # 
    # query all the Dell iDRAC service processor hosts to get the health status  by SNMP 
    #
-   $community = $community_linux;                                            			#set the SNMP community string for this device type
+   $community = $community_idrac9;                                            	#set the SNMP community string for this device type
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %idrac9_hosts) {
-      next unless ( $idrac9_hosts{$key}{ping} eq "up" );						#skip hosts that do not respond to ping
+      next unless ( $idrac9_hosts{$key}{ping} eq "up" );			#skip hosts that do not respond to ping
+      $idrac9_hosts{$key}{snmp}               = "unknown";			#initialize hash element
       $idrac9_hosts{$key}{GlobalSystemStatus} = "unknown";			#initialize hash element
       $oid = ".1.3.6.1.4.1.674.10892.5.2.1.0";					#SNMP OID for GlobalSystemStatus
       $cmd = "$snmpget -v 1 -c $community $idrac9_hosts{$key}{hostname} $oid";	#define command to be run
@@ -2113,6 +2138,7 @@ sub get_dell_idrac9_status {
             $idrac9_hosts{$key}{GlobalSystemStatus} = "nonCritical"    if ( $idrac9_hosts{$key}{GlobalSystemStatus} eq "4" );	#convert integer to human readable text
             $idrac9_hosts{$key}{GlobalSystemStatus} = "Critical"       if ( $idrac9_hosts{$key}{GlobalSystemStatus} eq "5" );	#convert integer to human readable text
             $idrac9_hosts{$key}{GlobalSystemStatus} = "nonRecoverable" if ( $idrac9_hosts{$key}{GlobalSystemStatus} eq "6" );	#convert integer to human readable text
+            $idrac9_hosts{$key}{snmp}               = "ok";									#finding a value here means we have working SNMP
          }                                                             		#end of if block
       }                                                                		#end of while loop
       close IN;                                                         	#close filehandle
@@ -2233,46 +2259,48 @@ sub get_emc_unisphere_status {
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %unisphere_hosts) {
-      next unless ( $unisphere_hosts{$key}{ping} eq "up" );					#skip hosts that do not respond to ping
+      next unless ( $unisphere_hosts{$key}{ping} eq "up" );						#skip hosts that do not respond to ping
       #
       # Check the UniSphere SNMP OID for productIDGlobalStatus
       #
-      $unisphere_hosts{$key}{productIDGlobalStatus} = "unknown";			#initialize hash element
-      $oid = ".1.3.6.1.4.1.674.11000.2000.500.1.2.6.0";					#SNMP OID for GlobalSystemStatus
-      $cmd = "$snmpget -v 1 -c $community $unisphere_hosts{$key}{hostname} $oid";	#define command to be run
+      $unisphere_hosts{$key}{snmp}                  = "unknown";					#initialize hash element
+      $unisphere_hosts{$key}{productIDGlobalStatus} = "unknown";					#initialize hash element
+      $oid = ".1.3.6.1.4.1.674.11000.2000.500.1.2.6.0";							#SNMP OID for GlobalSystemStatus
+      $cmd = "$snmpget -v 1 -c $community $unisphere_hosts{$key}{hostname} $oid";			#define command to be run
       print "   running command to get UniSphere productIDGlobalStatus: $cmd \n" if ($verbose eq "yes");
-      open(IN,"$cmd 2>&1 |");                                           		#open filehandle using command output
-      while (<IN>) {                                                   	 		#read a line from the command output
+      open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
+      while (<IN>) {                                                   	 				#read a line from the command output
          if ( / = INTEGER: ([0-9]+)/ ) {
-            $unisphere_hosts{$key}{productIDGlobalStatus} = $1;			#value for productIDGlobalStatus
+            $unisphere_hosts{$key}{productIDGlobalStatus} = $1;											#value for productIDGlobalStatus
             $unisphere_hosts{$key}{productIDGlobalStatus} = "Other"          if ( $unisphere_hosts{$key}{productIDGlobalStatus} eq "1" );	#convert integer to human readable text
             $unisphere_hosts{$key}{productIDGlobalStatus} = "Unknown"        if ( $unisphere_hosts{$key}{productIDGlobalStatus} eq "2" );	#convert integer to human readable text
             $unisphere_hosts{$key}{productIDGlobalStatus} = "ok"             if ( $unisphere_hosts{$key}{productIDGlobalStatus} eq "3" );	#convert integer to human readable text
             $unisphere_hosts{$key}{productIDGlobalStatus} = "nonCritical"    if ( $unisphere_hosts{$key}{productIDGlobalStatus} eq "4" );	#convert integer to human readable text
             $unisphere_hosts{$key}{productIDGlobalStatus} = "Critical"       if ( $unisphere_hosts{$key}{productIDGlobalStatus} eq "5" );	#convert integer to human readable text
             $unisphere_hosts{$key}{productIDGlobalStatus} = "nonRecoverable" if ( $unisphere_hosts{$key}{productIDGlobalStatus} eq "6" );	#convert integer to human readable text
-         }                                                             		#end of if block
-      }                                                                		#end of while loop
-      close IN;                                                         	#close filehandle
+            $unisphere_hosts{$key}{snmp}                  = "ok";										#finding a value here means we have working SNMP
+         }                                                 			            		#end of if block
+      }                                                                					#end of while loop
+      close IN;                                                         				#close filehandle
       print "   host:$unisphere_hosts{$key}{hostname} productIDGlobalStatus:$unisphere_hosts{$key}{productIDGlobalStatus}  \n" if ($verbose eq "yes");
       #
       # Check the UniSphere SNMP OID for ServiceTag
       #
-      $unisphere_hosts{$key}{ServiceTag} = "unknown";					#initialize hash element
-      $oid = "1.3.6.1.4.1.674.11000.2000.500.1.2.5.0";					#SNMP OID for ServiceTag
-      $cmd = "$snmpget -v 1 -c $community $unisphere_hosts{$key}{hostname} $oid";	#define command to be run
+      $unisphere_hosts{$key}{ServiceTag} = "unknown";							#initialize hash element
+      $oid = "1.3.6.1.4.1.674.11000.2000.500.1.2.5.0";							#SNMP OID for ServiceTag
+      $cmd = "$snmpget -v 1 -c $community $unisphere_hosts{$key}{hostname} $oid";			#define command to be run
       print "   running command to get UniSphere ServiceTag: $cmd \n" if ($verbose eq "yes");
-      open(IN,"$cmd 2>&1 |");                                           		#open filehandle using command output
-      while (<IN>) {                                                   	 		#read a line from the command output
-         s/"//g;									#get rid of " character 
+      open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
+      while (<IN>) {                                                   			 		#read a line from the command output
+         s/"//g;											#get rid of " character 
          if ( / = STRING: ([a-zA-Z0-9]+)/ ) {
-            $unisphere_hosts{$key}{ServiceTag} = $1;					#value for ServiceTag
-         }                                                             			#end of if block
-      }                                                                			#end of while loop
-      close IN;                                                         		#close filehandle
+            $unisphere_hosts{$key}{ServiceTag} = $1;							#value for ServiceTag
+         }                                                             					#end of if block
+      }                                                                					#end of while loop
+      close IN;                                                        			 		#close filehandle
       print "   host:$unisphere_hosts{$key}{hostname} ServiceTag:$unisphere_hosts{$key}{ServiceTag}  \n" if ($verbose eq "yes");
-   } 											#end of foreach loop
-} 											#end of subroutine
+   } 													#end of foreach loop
+} 													#end of subroutine
 
 
 
@@ -2348,6 +2376,7 @@ sub get_lenovo_xclarity_status {
    #      Login to the xClarity controller, click BMC Configuration, User/LDAP, create a user called nagios, paste in contents of $HOME/.ssh/id_rsa.pub  
    #
    foreach $key (sort keys %xclarity_hosts) {
+      $xclarity_hosts{$key}{ssh} = "unknown";					#initialize hash element
       #
       #
       # initialize hash elements
@@ -2378,6 +2407,21 @@ sub get_lenovo_xclarity_status {
       #   System             Normal     
       #
       next unless ( $xclarity_hosts{$key}{ping} eq "up" );					#skip hosts that do not respond to ping
+      #
+      # confirm SSH is working
+      #
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $xclarity_hosts{$key}{hostname} syshealth summary";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
+      while (<IN>) {                                                            #read a line from the command output
+         if ( /^Cooling Devices +([a-zA-Z]+)/ ) {                               #find health metric
+            $xclarity_hosts{$key}{ssh} = "ok";    				#finding a value here means we have working SSH
+         }                                                                      #end of if block
+      } 									# end of while loop 
+      #
+      # at this point, we know SSH is working, so continue with the rest of the checks
+      #
+      next unless ( $xclarity_hosts{$key}{ssh} eq "ok" );			#skip hosts that do not respond to ssh
       $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $xclarity_hosts{$key}{hostname} syshealth summary";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
@@ -2487,7 +2531,8 @@ sub get_brocade_status {
    foreach $key (sort keys %brocade_hosts) {
       #
       #
-      $brocade_hosts{$key}{switch_type} = "unknown";				#initialize hash element
+      $brocade_hosts{$key}{snmp}          = "unknown";				#initialize hash element
+      $brocade_hosts{$key}{switch_type}   = "unknown";				#initialize hash element
       $brocade_hosts{$key}{switch_status} = "unknown";				#initialize hash element
       next unless ( $brocade_hosts{$key}{ping} eq "up" );			#skip hosts that do not respond to ping
       #
@@ -2501,6 +2546,7 @@ sub get_brocade_status {
          s/"//g;								#get rid of " character to simplify regex
          if ( /STRING: ([0-9a-zA-Z_\.]+)/ ) {  					#look for a response to the snmp query
             $brocade_hosts{$key}{switch_type} = $1;				#value for switch type / model number
+            $brocade_hosts{$key}{snmp}        = "ok";				#finding a value here means we have working SNMP
          }                                                             		#end of if block
       }                                                                		#end of while loop
       close IN;                                                         	#close filehandle
@@ -2701,6 +2747,7 @@ sub get_netapp_status {
       #
       # Confirm SNMP is working
       #
+      $netapp_hosts{$key}{snmp}          = "unknown";   		                               	#initialize hash element
       $netapp_hosts{$key}{ontap_version} = "";   		                               	#initialize hash element
       $oid = ".1.3.6.1.2.1.1.1.0";                                                      	#SNMP OID for sysDescr
       $cmd = "$snmpget -v 1 -c $community $netapp_hosts{$key}{hostname} $oid";                  #define command to be run
@@ -2710,6 +2757,7 @@ sub get_netapp_status {
          s/"//g; 										#get rid of " character to make regex simpler
          if ( / = STRING: NetApp Release ([a-zA-Z0-9 \.]+):/ ) { 				#Capture the ONTAP version
             $netapp_hosts{$key}{ontap_version} = $1;                                         	#value for currently running ONTAP version
+            $netapp_hosts{$key}{snmp}          = "ok";                                         	#finding a value here means we have working SNMP
          }                                                                                      #end of if block
       }                                                                                         #end of while loop
       close IN;                                                                                 #close filehandle
@@ -2741,7 +2789,6 @@ sub get_netapp_status {
 
 
 
-
 sub get_ciscoios_status {
    #
    print "running get_ciscoios_status subroutine \n" if ($verbose eq "yes");
@@ -2759,6 +2806,7 @@ sub get_ciscoios_status {
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %ciscoios_hosts) {
+      $ciscoios_hosts{$key}{snmp} = "unknown";                                                  #initialize hash element
       #
       #
       # Get the ciscoios CPU utilization
@@ -2774,6 +2822,7 @@ sub get_ciscoios_status {
          if ( /Gauge32: ([0-9]+)/ ) {                                                           #look for a response to the snmp query
             $ciscoios_hosts{$key}{cpu_util} = $ciscoios_hosts{$key}{cpu_util}+ $1;              #running total of all processors
             $count++;                                                                           #increment counter for number of processors
+            $ciscoios_hosts{$key}{snmp} = "ok";              					#finding a value here means we  have working SNMP
          }                                                                                      #end of if block
       }                                                                                         #end of while loop
       close IN;                                                                                 #close filehandle
@@ -2782,7 +2831,6 @@ sub get_ciscoios_status {
       print "   host:$ciscoios_hosts{$key}{hostname} cpu_util:$ciscoios_hosts{$key}{cpu_util}\% \n" if ($verbose eq "yes");
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
-
 
 
 
@@ -2799,6 +2847,7 @@ sub get_fortigate_status {
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %fortigate_hosts) {
+      $fortigate_hosts{$key}{snmp} = "unknown";					#initialize value to avoid undef errors
       $fortigate_hosts{$key}{cpu_util} = 0;					#initialize value to avoid undef errors
       next unless ( $fortigate_hosts{$key}{ping} eq "up" );			#skip hosts that do not respond to ping
       #
@@ -2813,6 +2862,7 @@ sub get_fortigate_status {
          s/"//g;								#get rid of " character to simplify regex
          if ( /Gauge32: ([0-9]+)/ ) {  						#look for a response to the snmp query
             $fortigate_hosts{$key}{cpu_util} = $1;				#value for CPU % utilization
+            $fortigate_hosts{$key}{snmp}     = "ok";				#finding a value here means we have working SNMP
          }                                                             		#end of if block
       }                                                                		#end of while loop
       close IN;                                                         	#close filehandle
@@ -2999,6 +3049,7 @@ sub get_hpilo4_status {
       #
       # Check the HP ILO4  SNMP OID for power supply redundancy
       #
+      $hpilo4_hosts{$key}{snmp}                          = "unknown";				#initialize hash element
       $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} = "unknown";				#initialize hash element
       next unless ( $hpilo4_hosts{$key}{ping} eq "up" );					#skip hosts that do not respond to ping
       $oid = ".1.3.6.1.4.1.232.6.2.9.1.0";							#SNMP OID for cpqHeFltTolPwrSupplyCondition
@@ -3012,6 +3063,7 @@ sub get_hpilo4_status {
             $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} = "ok"       if ( $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} eq "2" );  #convert from integer to humand readable value
             $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} = "degraded" if ( $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} eq "3" );  #convert from integer to humand readable value
             $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} = "failed"   if ( $hpilo4_hosts{$key}{cpqHeFltTolPwrSupplyCondition} eq "4" );  #convert from integer to humand readable value
+            $hpilo4_hosts{$key}{snmp}                          = "ok";      								       #finding a value here means we have working SNMP
          }											#end of if block
       }												#end of while loop
       close IN;                                                         			#close filehandle
@@ -3064,6 +3116,47 @@ sub get_hpilo4_status {
       close IN;                                                       	  			#close filehandle
       $hpilo4_hosts{$key}{logical_disks}{not_ok} = $hpilo4_hosts{$key}{logical_disks}{count} - $hpilo4_hosts{$key}{logical_disks}{ok};
       print "   host:$hpilo4_hosts{$key}{hostname} logical_disks_count:$hpilo4_hosts{$key}{logical_disks}{count} logical_disks_ok:$hpilo4_hosts{$key}{logical_disks}{ok} logical_disks_not_ok:$hpilo4_hosts{$key}{logical_disks}{not_ok} \n" if ($verbose eq "yes");
+
+      #
+      # Check the HP SmartArray RAID controller status 
+      #
+      # HINT: There will usually be only one RAID controller (or none at all if machine boots from SAM).  In rare cases, there may be multiple RAID controllers.
+      # Sample output:
+      # $ snmpwalk -v 1 -c public ilo.example.com.1.3.6.1.4.1.232.3.2.2.1.1.12
+      # SNMPv2-SMI::enterprises.232.3.2.2.1.1.12.0 = INTEGER: 2   <-- status of first  RAID controller 1=other 2=ok 3=degraed 4=failed
+      # SNMPv2-SMI::enterprises.232.3.2.2.1.1.12.1 = INTEGER: 3   <-- status of second RAID controller 1=other 2=ok 3=degraed 4=failed
+      # SNMPv2-SMI::enterprises.232.3.2.2.1.1.12.2 = INTEGER: 4   <-- status of third  RAID controller 1=other 2=ok 3=degraed 4=failed
+      #  
+      # Sample output with -Onq switch.  We use this switch to make snmpwalk on Linux have output simimlar to snmpinfo on AIX.
+      # $ snmpwalk -Onq -v 1 -c public ilo.example.com.1.3.6.1.4.1.232.3.2.2.1.1.12
+      # .1.3.6.1.4.1.232.3.2.2.1.1.12.0 2 <-- status of first  RAID controller 1=other 2=ok 3=degraed 4=failed
+      # .1.3.6.1.4.1.232.3.2.2.1.1.12.1 3 <-- status of second RAID controller 1=other 2=ok 3=degraed 4=failed
+      # .1.3.6.1.4.1.232.3.2.2.1.1.12.2 4 <-- status of third  RAID controller 1=other 2=ok 3=degraed 4=failed
+      #
+      $hpilo4_hosts{$key}{raid_controller}{count}   = 0;  #counter for number of installed RAID controllers
+      $hpilo4_hosts{$key}{raid_controller}{ok}      = 0;  
+      $hpilo4_hosts{$key}{raid_controller}{not_ok}  = 0;  
+      #
+      #
+      #
+      # Check status of RAID controller and an associated array accelerators / write cache modules
+      #
+      # /iso/iso-identified-organization/dod/internet/private/enterprises/hp/cpqDriveArray/cpqDaComponent/cpqDaCntlr/cpqDaCntlrTable/cpqDaCntlrEntry/cpqDaCntlrBoardCondition 
+      $oid = "1.3.6.1.4.1.232.3.2.2.1.1.12";
+      $cmd = "$snmpwalk -Onq -v 1 -c $community $hpilo4_hosts{$key}{hostname} $oid";
+      print "   running command to check status of of HPE SmartArray RAID controller: $cmd \n" if ($verbose eq "yes");
+      open (IN,"$cmd |");						#open filehandle
+      while (<IN>) {						#read a line from the filehandle
+         s/\"//g;							#get rid of any quotation marks in the output
+         s/=//g;							#get rid of any equal sign in the output
+         if ( /[0-9\.]+ +([0-9]+)/) {				#parse out the line of output into OID and value
+            $hpilo4_hosts{$key}{raid_controller}{count}++;   			#increment counter for number of installed RAID controllers
+            $hpilo4_hosts{$key}{raid_controller}{ok}++     if ($1 == 2);   	#increment counter for number of RAID controllers with OK status
+            $hpilo4_hosts{$key}{raid_controller}{not_ok}++ if ($1 != 2);   	#increment counter for number of RAID controllers with anything other than OK status
+         }
+      }								#end of while loop
+      close IN;							#close filehandle
+      print "   raid_controller_count:$hpilo4_hosts{$key}{raid_controller}{count} raid_controller_ok:$hpilo4_hosts{$key}{raid_controller}{ok} raid_controller_not_ok:$hpilo4_hosts{$key}{raid_controller}{not_ok}";
       #
       # Check the HP ILO4  SNMP OID for physical Processor status
       #
@@ -3114,6 +3207,138 @@ sub get_hpilo4_status {
    } 												#end of foreach loop
 } 												#end of subroutine
 
+
+
+
+sub get_linux_status {
+   #
+   print "running get_linux_status subroutine \n" if ($verbose eq "yes");
+   #
+   # query all the Linux hosts to get NTP time sync status  via SSH
+   # This assues there is already a nagios monitoring system in place with preshared ssh keys
+   #
+   foreach $key (sort keys %linux_hosts) {
+      #
+      # confirm SSH key pair authentication is working
+      #
+      $linux_hosts{$key}{ssh} = "unknown";                                                     	#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} hostname";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         if ( /[a-zA-Z0-9]+/ ) {                                               			#find output of the "hostname" command
+            $linux_hosts{$key}{ssh} = "OK";                                                     #set the hash element to be used later as a boolean
+         } else {                                                                               #end of if block
+            s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+            $linux_hosts{$key}{ssh} = "unknown";                                                #if SSH is not OK, set hash element 
+         }                                                                                      #end of if/else block
+      }                                                                                         #end of while loop
+      print "   SSH:$linux_hosts{$key}{ssh} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+      next unless ( $linux_hosts{$key}{ssh} eq "OK" );						#break out of subroutine if SSH is not working
+      #
+      # get NTP status utilization
+      #
+      $linux_hosts{$key}{ntp} = "unknown";                                                     	#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_time_sync";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         if ( /^time sync OK/ ) {                                                               #find output of nagios check
+            $linux_hosts{$key}{ntp} = "OK";                                                     #shorten the status to just "OK"
+         } else {                                                                               #end of if block
+            s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+            $linux_hosts{$key}{ntp} = $_;                                                       #if NTP is not OK, include details of the problem
+         }                                                                                      #end of if/else block
+      }                                                                                         #end of while loop
+      print "   NTP:$linux_hosts{$key}{ntp} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+      #
+      # check UNIX password age for root user
+      #
+      $linux_hosts{$key}{root_password_age_days} = 99999;               			#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{root_password_age}      = "UNKNOWN";               			#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180 --user=root";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+         if ( /user:root age:([0-9]+) minage:[0-9]+ maxage:([0-9]+) days_left:([0-9\-]+)/ ) {   #parse the output of the nagios check for the root user
+            $linux_hosts{$key}{root_password_age_days}      = $1;                               #parse out the password age in days
+            $linux_hosts{$key}{root_password_maxage_days}   = $2;                               #parse out the password age in days
+            $linux_hosts{$key}{root_password_age_days_left} = $3;                               #parse out the password age in days remaining before expiry
+            #xxxx
+         }
+         if ( /^password age OK/ ) {                                                            #find output of nagios check
+            $linux_hosts{$key}{root_password_age} = "OK";                                       #shorten output to "OK"
+         } else {                                                                               #end of if block
+            $linux_hosts{$key}{root_password_age} = $_;                                         #if not OK, include details of the problem
+         }                                                                                      #end of if/else block
+         #
+         if ( $linux_hosts{$key}{root_password_maxage_days} - $linux_hosts{$key}{root_password_age_days} > 14 ) {
+            $linux_hosts{$key}{root_password_age} = "OK";                                       #shorten output to "OK"
+         }
+      }                                                                                         #end of while loop
+      print "   password_age:$linux_hosts{$key}{root_password_age} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+      #
+      # check UNIX password age for all other users.  This tells us if *any* user account is expired.
+      # Unlike the previous section, this just gives an "OK" rather than the number of days.
+      #
+      $linux_hosts{$key}{unix_password_age} = "UNKNOWN";               				#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+         if ( /^password age OK/ ) {                                                            #find output of nagios check
+            $linux_hosts{$key}{unix_password_age} = "OK";                                       #shorten the status to just "OK"
+         } elsif ( /^password age WARN/ ) {                                                     #find output of nagios check
+            $linux_hosts{$key}{unix_password_age} = $_;   	                                #if not OK, include details of the problem
+         } elsif ( /^password age CRITICAL/ ) {                                                 #find output of nagios check
+            $linux_hosts{$key}{unix_password_age} = $_;   	                                #if not OK, include details of the problem
+         } else {                                                 				#find output of nagios check
+            $linux_hosts{$key}{unix_password_age} = $_;   	                                #if not OK, include details of the problem
+         }                                                                                      #end of if/else block
+      }                                                                                         #end of while loop
+      print "   password_age:$linux_hosts{$key}{unix_password_age} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+      #
+      # check state of linux daemons
+      #
+      $linux_hosts{$key}{daemons} = "unknown";  		             			#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_daemons";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+         if ( /^linux daemons OK/ ) {                                                           #find output of nagios check
+            $linux_hosts{$key}{daemons} = "OK";                		                       	#shorten the status to just "OK"
+         } else {                                                                               #end of if block
+            $linux_hosts{$key}{daemons} = $_;                          		               	#if paging is not OK, include details of the problem
+         }                                                                                      #end of if/else block
+      }                                                                                         #end of while loop
+      print "   daemons:$linux_hosts{$key}{daemons} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+      #
+      # check state of Oracle databases
+      #
+      $linux_hosts{$key}{oracle_databases} = "unknown";  		             			#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_oracle_instances";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+         if ( /^oracle instances OK/ ) {                                                        #find output of nagios check
+            $linux_hosts{$key}{oracle_databases} = "OK";      		                       	#shorten the status to just "OK"
+         } else {                                                                               #end of if block
+            $linux_hosts{$key}{oracle_databases} = $_;                          		               	#if paging is not OK, include details of the problem
+         }                                                                                      #end of if/else block
+      }                                                                                         #end of while loop
+      print "   daemons:$linux_hosts{$key}{oracle_databases} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+   }                                                                                            #end of foreach loop
+}                                                                                               #end of subroutine
 
 
 
@@ -3227,15 +3452,22 @@ sub get_hmc_status {
       # run this section if the nagios temporary file exists
       #
       if ( -e "$nagios_tempfile" ) {
+         $hmc_hosts{$key}{health} = "UNKNOWN";                                                  #initialize hash element to avoid undef errors
          print "   reading file $nagios_tempfile \n" if ($verbose eq "yes");
          open(IN,"$nagios_tempfile") or warn "Cannot open /tmp/nagios.check_hmc.$hmc_hosts{$key}{hostname}.tmp file for reading $! \n";
          while (<IN>) {                                                                         #read a line from the command output
             if ( /^HMC checks OK/ ) {                                                           #find output of nagios check
                $hmc_hosts{$key}{health} = "OK";                                                 #shorten the status to just "OK"
-            } else {                                                                            #end of if block
-               s/\|.*//g;									#get rid of nagios performance data after the | character, not relevant for this report
-               $hmc_hosts{$key}{health} = $_;                                                   #if paging is not OK, include details of the problem
-            }                                                                                   #end of if/else block
+            } 
+            if ( /^HMC checks WARN/ ) {                                                         #find output of nagios check
+               $hmc_hosts{$key}{health} = "WARN";                                               #shorten the status to just "OK"
+            } 
+            if ( /^HMC checks CRITICAL/ ) {                                                     #find output of nagios check
+               $hmc_hosts{$key}{health} = "CRITICAL";                                           #shorten the status to just "OK"
+            } 
+            if ( /^HMC checks UNKNOWN/ ) {                                                      #find output of nagios check
+               $hmc_hosts{$key}{health} = "UNKNOWN";                                            #shorten the status to just "OK"
+            } 
          }                                                                                      #end of while loop
          print "   hmc_health:$hmc_hosts{$key}{health} \n" if ($verbose eq "yes");
          close IN;                                                                              #close filehandle
@@ -3258,6 +3490,7 @@ sub get_mikrotik_swos_status {
    # This assues there is already a nagios monitoring system in place with preshared ssh keys
    #
    foreach $key (sort keys %mikrotik_swos_hosts) {
+      $mikrotik_swos_hosts{$key}{snmp} = "unknown";                                          	#initialize hash element
       #
       # get CPU utilization
       #
@@ -3267,9 +3500,11 @@ sub get_mikrotik_swos_status {
       while (<IN>) {                                                                            #read a line from the command output
          if ( /^MikroTik SwOS OK/ ) {                                                           #find output of nagios check
             $mikrotik_swos_hosts{$key}{health} = "OK";                                          #shorten the status to just "OK"
+            $mikrotik_swos_hosts{$key}{snmp}   = "ok";                                          #finding a value here means we have working SNMP
          } else {                                                                               #end of if block
             s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
             $mikrotik_swos_hosts{$key}{health} = $_;                                            #if CPU is not OK, include details of the problem
+            $mikrotik_swos_hosts{$key}{snmp}   = "ok";                                          #finding a value here means we have working SNMP
          }                                                                                      #end of if/else block
       }                                                                                         #end of while loop
       print "   health:$mikrotik_swos_hosts{$key}{cpu} \n" if ($verbose eq "yes");
@@ -3304,8 +3539,8 @@ sub generate_html_report_linux_hosts {
    # Create the HTML table for Linux hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=6> Linux Hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> CPU util <td> RAM util<td> Paging Space util <td> Disk util\n";
+   print OUT "<tr bgcolor=gray><td colspan=13> Linux Hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> NTP <td> root pw age <td>other pw <td> daemons <td>Oracle DB <td> SNMP <td> CPU util <td> RAM util<td> Paging Space util <td> Disk util \n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3316,13 +3551,74 @@ sub generate_html_report_linux_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $linux_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $linux_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $linux_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $linux_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $linux_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT "  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SSH status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $linux_hosts{$key}{ssh} eq "OK" );
+      $bgcolor = "red"   if ( $linux_hosts{$key}{ssh} ne "OK" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{ssh} \n";
+      #
+      # print NTP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $linux_hosts{$key}{ntp} eq "OK" );
+      $bgcolor = "red"   if ( $linux_hosts{$key}{ntp} ne "OK" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{ntp} \n";
+      #
+      # print root password age in table row (OK=not expired)
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if ( $linux_hosts{$key}{root_password_age} eq "OK" );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{root_password_age} ne "OK" );
+      $bgcolor = "orange" if ( ($linux_hosts{$key}{root_password_age_days} > 160) && ($linux_hosts{$key}{root_password_age_days} <= 180) );  #orange for warning when password age is getting close to 180
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{root_password_age_days} \n";  #note that we check root_password_age for "OK", then get number of days from root_password_age_days
+      #
+      # print all other accounts (non-root) password age in table row (OK=not expired)
+      # 
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if ( $linux_hosts{$key}{unix_password_age} =~ /OK/ );
+      $bgcolor = "orange" if ( $linux_hosts{$key}{unix_password_age} =~ /WARN/ );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{unix_password_age} =~ /CRITICAL/ );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{unix_password_age} =~ /UNKNOWN/ );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{unix_password_age} \n"; 
+      #
+      # print status of linux daemons in table row 
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if ( $linux_hosts{$key}{daemons} eq "OK" );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{daemons} ne "OK" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{daemons} \n";  
+      #
+      # print status of oracle databases in table row 
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if ( $linux_hosts{$key}{oracle_databases} eq "OK" );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{oracle_databases} ne "OK" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{oracle_databases} \n";  
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $linux_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $linux_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $linux_hosts{$key}{snmp} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
@@ -3392,8 +3688,9 @@ sub generate_html_report_san_multipath_linux_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $san_multipath_linux_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $san_multipath_linux_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $san_multipath_linux_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $san_multipath_linux_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $san_multipath_linux_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
@@ -3454,8 +3751,8 @@ sub generate_html_report_windows_hosts {
    # Create the HTML table for Windows hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=6> Windows Hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> CPU util <td> RAM util<td> Paging Space util <td> Disk util\n";
+   print OUT "<tr bgcolor=gray><td colspan=7> Windows Hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util <td> RAM util<td> Paging Space util <td> Disk util\n";
    foreach $key (sort keys %windows_hosts) {
       #
       # print hostname field in table row
@@ -3466,13 +3763,29 @@ sub generate_html_report_windows_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $windows_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $windows_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $windows_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $windows_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $windows_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $windows_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $windows_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $windows_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $windows_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $windows_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $windows_hosts{$key}{snmp} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
@@ -3534,8 +3847,8 @@ sub generate_html_report_idrac9_hosts {
    # Create the HTML table for Dell iDRAC9 service processor hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=6> Dell iDRAC9 Service Processors \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Model <td> Service Tag <td> System Status <td> Storage Status \n";
+   print OUT "<tr bgcolor=gray><td colspan=7> Dell iDRAC9 Service Processors \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> Model <td> Service Tag <td> System Status <td> Storage Status \n";
    foreach $key (sort keys %idrac9_hosts) {
       #
       # print hostname field in table row
@@ -3546,13 +3859,29 @@ sub generate_html_report_idrac9_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $idrac9_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $idrac9_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $idrac9_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $idrac9_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $idrac9_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $idrac9_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $idrac9_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $idrac9_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $idrac9_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $idrac9_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $idrac9_hosts{$key}{snmp} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
@@ -3613,8 +3942,9 @@ sub generate_html_report_idrac8_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $idrac8_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $idrac8_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $idrac8_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $idrac8_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $idrac8_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $idrac8_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
@@ -3667,8 +3997,8 @@ sub generate_html_report_unisphere_hosts {
    # Create the HTML table for DellEMC UniSphere hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=4> DellEMC UniSphere Storage Manager Hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Service Tag <td> System Status  \n";
+   print OUT "<tr bgcolor=gray><td colspan=5> DellEMC UniSphere Storage Manager Hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> Service Tag <td> System Status  \n";
    foreach $key (sort keys %unisphere_hosts) {
       #
       # print hostname field in table row
@@ -3679,13 +4009,29 @@ sub generate_html_report_unisphere_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $unisphere_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $unisphere_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $unisphere_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $unisphere_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $unisphere_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $unisphere_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $unisphere_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $unisphere_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $unisphere_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $unisphere_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $unisphere_hosts{$key}{snmp} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
@@ -3732,8 +4078,9 @@ sub generate_html_report_ibm_imm2_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $ibm_imm2_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $ibm_imm2_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $ibm_imm2_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $ibm_imm2_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $ibm_imm2_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $ibm_imm2_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
@@ -3793,8 +4140,8 @@ sub generate_html_report_xclarity_hosts {
    # Create the HTML table for Lenovo xClarity Service Processor hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=11> Lenovo xClarity Service Processors  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Model <td> Serial <td> Cooling Devices <td> Ambient Temperature <td> Power Modules <td> Local Storage <td> Processors <td> Memory <td> System Health \n";
+   print OUT "<tr bgcolor=gray><td colspan=12> Lenovo xClarity Service Processors  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> Model <td> Serial <td> Cooling Devices <td> Ambient Temperature <td> Power Modules <td> Local Storage <td> Processors <td> Memory <td> System Health \n";
    foreach $key (sort keys %xclarity_hosts) {
       #
       # print hostname field in table row
@@ -3805,13 +4152,29 @@ sub generate_html_report_xclarity_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $xclarity_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $xclarity_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $xclarity_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $xclarity_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $xclarity_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $xclarity_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $xclarity_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor>";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SSH status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $xclarity_hosts{$key}{ssh} eq "ok" );
+      $bgcolor = "red"   if ( $xclarity_hosts{$key}{ssh} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $xclarity_hosts{$key}{ssh} \n";
+      #
+      # if host did not respond to SSH queries, just put blanks in for the rest of the line
+      #
+      if ( $xclarity_hosts{$key}{ssh} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor>";
          next;   									#skip the rest of this for loop iteration
@@ -3899,8 +4262,8 @@ sub generate_html_report_brocade_hosts {
    # Create the HTML table for Brocae fibre channel switch hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=4> Brocade fibre switches  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Model <td> Health  \n";
+   print OUT "<tr bgcolor=gray><td colspan=5> Brocade fibre switches  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> Model <td> Health  \n";
    foreach $key (sort keys %brocade_hosts) {
       #
       # print hostname field in table row
@@ -3911,15 +4274,31 @@ sub generate_html_report_brocade_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $brocade_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $brocade_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $brocade_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $brocade_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $brocade_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $brocade_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $brocade_hosts{$key}{ping} ne "up" ) { 
          $bgcolor = "white";
-         print OUT " <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor>";
+         print OUT "  <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor>";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $brocade_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $brocade_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $brocade_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $brocade_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
       }
       #
@@ -3968,8 +4347,9 @@ sub generate_html_report_flashsystem_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $flashsystem_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $flashsystem_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $flashsystem_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $flashsystem_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $flashsystem_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $flashsystem_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
@@ -4023,8 +4403,8 @@ sub generate_html_report_ciscoios_hosts {
    # Create the HTML table for FortiGate firewalls
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=3> Cisco IOS Devices  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> CPU util \n";
+   print OUT "<tr bgcolor=gray><td colspan=4> Cisco IOS Devices  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util \n";
    foreach $key (sort keys %ciscoios_hosts) {
       #
       # print hostname field in table row
@@ -4035,9 +4415,33 @@ sub generate_html_report_ciscoios_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green" if ( $ciscoios_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $ciscoios_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $ciscoios_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $ciscoios_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $ciscoios_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $ciscoios_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $brocade_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $ciscoios_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $ciscoios_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $ciscoios_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $brocade_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
       #
       # print CPU utilization in table row
       #
@@ -4072,15 +4476,16 @@ sub generate_html_report_qnap_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $qnap_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $qnap_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $qnap_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $qnap_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $qnap_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $qnap_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $qnap_hosts{$key}{ping} ne "up" ) { 
          $bgcolor = "white";
-         print OUT " <td bgcolor=$bgcolor> ";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
       }
       #
@@ -4106,8 +4511,8 @@ sub generate_html_report_fortigate_hosts {
    # Create the HTML table for FortiGate firewalls
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=5> FortiGate firewalls  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> CPU util <td> RAM util<td> Bandwidth util \n";
+   print OUT "<tr bgcolor=gray><td colspan=6> FortiGate firewalls  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util <td> RAM util<td> Bandwidth util \n";
    foreach $key (sort keys %fortigate_hosts) {
       #
       # print hostname field in table row
@@ -4118,13 +4523,29 @@ sub generate_html_report_fortigate_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $fortigate_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $fortigate_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $fortigate_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $fortigate_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $fortigate_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $fortigate_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
       if ( $fortigate_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $fortigate_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $fortigate_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $fortigate_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $fortigate_hosts{$key}{snmp} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
@@ -4166,8 +4587,8 @@ sub generate_html_report_hpilo4_hosts {
    # Create the HTML table for FortiGate firewalls
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=9> Hewlett Packard ILO4 Service Processors  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Power Redundancy <td> Fans <td> Ambient Temperature <td> Physical Disks <td> Logical Disks <td> Processors <td> Memory Modules \n";
+   print OUT "<tr bgcolor=gray><td colspan=11> Hewlett Packard ILO4 Service Processors  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> Power Redundancy <td> Fans <td> Ambient Temperature <td> Physical Disks <td> Logical Disks <td> RAID controller <td> Processors <td> Memory Modules \n";
    foreach $key (sort keys %hpilo4_hosts) {
       #
       # print hostname field in table row
@@ -4178,8 +4599,9 @@ sub generate_html_report_hpilo4_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $hpilo4_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $hpilo4_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $hpilo4_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $hpilo4_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $hpilo4_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $hpilo4_hosts{$key}{ping} \n";
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
@@ -4187,6 +4609,21 @@ sub generate_html_report_hpilo4_hosts {
       if ( $hpilo4_hosts{$key}{ping} ne "up" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $hpilo4_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $hpilo4_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $hpilo4_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $hpilo4_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
       }
       #
@@ -4226,6 +4663,13 @@ sub generate_html_report_hpilo4_hosts {
       $bgcolor = "green"  if (  $hpilo4_hosts{$key}{logical_disks}{count} == $hpilo4_hosts{$key}{logical_disks}{ok} );
       $bgcolor = "red"    if (  $hpilo4_hosts{$key}{logical_disks}{count} != $hpilo4_hosts{$key}{logical_disks}{ok} );
       print OUT "    <td bgcolor=$bgcolor> $hpilo4_hosts{$key}{logical_disks}{ok}/$hpilo4_hosts{$key}{logical_disks}{count} disks ok\n";
+      #
+      # print RAID controller status table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $hpilo4_hosts{$key}{raid_controller}{count} == $hpilo4_hosts{$key}{raid_controller}{ok} );
+      $bgcolor = "red"    if (  $hpilo4_hosts{$key}{raid_controller}{count} != $hpilo4_hosts{$key}{raid_controller}{ok} );
+      print OUT "    <td bgcolor=$bgcolor> $hpilo4_hosts{$key}{raid_controller}{ok}/$hpilo4_hosts{$key}{raid_controller}{count} ok\n";
       #
       # print processor module status table row
       #
@@ -4267,8 +4711,9 @@ sub generate_html_report_aix_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green" if ( $aix_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $aix_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $aix_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $aix_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $aix_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $aix_hosts{$key}{ping} \n";
       #
       # print CPU utilization status in table row
@@ -4318,8 +4763,9 @@ sub generate_html_report_hmc_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green" if ( $hmc_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $hmc_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $hmc_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $hmc_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $hmc_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $hmc_hosts{$key}{ping} \n";
       #
       # print overall system health in table row
@@ -4342,8 +4788,8 @@ sub generate_html_report_mikrotik_swos_hosts {
    # Create the HTML table for MikroTik SwOS devices
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=3> MikroTik SwOS hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Health  \n";
+   print OUT "<tr bgcolor=gray><td colspan=4> MikroTik SwOS hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> Health  \n";
    foreach $key (sort keys %mikrotik_swos_hosts) {
       #
       # print hostname field in table row
@@ -4354,9 +4800,33 @@ sub generate_html_report_mikrotik_swos_hosts {
       # print ping status in table row
       #
       $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green" if ( $mikrotik_swos_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $mikrotik_swos_hosts{$key}{ping} eq "down" );
+      $bgcolor = "green"  if ( $mikrotik_swos_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $mikrotik_swos_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $mikrotik_swos_hosts{$key}{ping} eq "unknown" );
       print OUT "   <td bgcolor=$bgcolor> $mikrotik_swos_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $mikrotik_swos_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $mikrotik_swos_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $mikrotik_swos_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $mikrotik_swos_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $mikrotik_swos_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
       #
       # print overall system health in table row
       #
@@ -4379,8 +4849,8 @@ sub generate_html_report_netapp_hosts {
    # Create the HTML table for NetApp ONTAP storage systems
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=4> NetApp ONTAP storage systems \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ONTAP <td> Ping <td> Health  \n";
+   print OUT "<tr bgcolor=gray><td colspan=5> NetApp ONTAP storage systems \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> SNMP <td> ONTAP <td> Health  \n";
    foreach $key (sort keys %netapp_hosts) {
       #
       # print hostname field in table row
@@ -4388,17 +4858,41 @@ sub generate_html_report_netapp_hosts {
       $bgcolor = "white";
       print OUT "<tr><td>$netapp_hosts{$key}{hostname} \n" ;
       #
+      # print ping status in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if ( $netapp_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $netapp_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $netapp_hosts{$key}{ping} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $netapp_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $netapp_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $netapp_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $netapp_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $netapp_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $netapp_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
       # print ONTAP version field in table row
       #
       $bgcolor = "white";
       print OUT "    <td>$netapp_hosts{$key}{ontap_version} \n" ;
-      #
-      # print ping status in table row
-      #
-      $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green" if ( $netapp_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"   if ( $netapp_hosts{$key}{ping} eq "down" );
-      print OUT "   <td bgcolor=$bgcolor> $netapp_hosts{$key}{ping} \n";
       #
       # print overall system health in table row
       #
@@ -4438,7 +4932,6 @@ sub send_report_via_email {
    #
    print "running send_report_via_email subroutine \n" if ($verbose eq "yes");
    #
-   return unless ($hour eq "07"); 		# this script runs hourly to generate an HTML page, but only send the report via email once per day
    open(MAIL,"|$sendmail -t");
    ## Mail Header
    print MAIL "To: $to\n";
@@ -4476,6 +4969,7 @@ get_paging_space_util_windows;
 get_windows_drive_util;
 get_linux_fs_util;
 get_san_multipath_linux_status;
+get_linux_status;   #miscellaneous SSH-based checks
 get_aix_status;
 #
 # check service processors
@@ -4524,3 +5018,4 @@ generate_html_report_fortigate_hosts;		#if any fortigate        hosts exist, add
 generate_html_report_mikrotik_swos_hosts;       #if any hmc              hosts exist, add them to the report
 generate_html_report_footer;			#now that all hosts have been added to the report, add the HTML footer
 send_report_via_email;
+
