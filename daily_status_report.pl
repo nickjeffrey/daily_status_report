@@ -42,6 +42,9 @@
 # 2022-11-27	njeffrey        Add SSH-based checks for Linux daemons by calling check_linux_daemons
 # 2022-11-27	njeffrey        Add SSH-based checks for Oracle databases by calling check_oracle_instances
 # 2023-03-31	njeffrey        Add column to Linux hosts output table showing status of non-root user accounts
+# 2023-05-10	njeffrey        Add column to Linux hosts output table showing days since last patch
+# 2023-05-10	njeffrey        Add column to Linux hosts output table showing Linux version (examples: RHEL8.6 CentOS9 OL8.6 )
+# 2023-06-26	njeffrey        Add Linux filesystem mount points /repo02 /u01 /u02 /u03 /u04 /u05 /u06 /backup
 
 
 
@@ -1896,6 +1899,11 @@ sub get_linux_fs_util {
             $linux_hosts{$key}{linux_fs}{_repo01}{mount_point} = "/repo01";                  		#save as a hash element instead of a hash key so we can query the value later
             print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_repo01}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_repo01}{hrStorageIndex} \n" if ($verbose eq "yes");
          }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/repo02$/ ) {  					#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_repo02}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_repo02}{mount_point} = "/repo02";                  		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_repo02}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_repo02}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
          if ( /hrStorageDescr.([0-9]+) = STRING: \/apps\/oracle$/ ) {  					#find the appropriate filesystem mount point
             $linux_hosts{$key}{linux_fs}{_apps_oracle}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
             $linux_hosts{$key}{linux_fs}{_apps_oracle}{mount_point} = "/apps/oracle";                  	#save as a hash element instead of a hash key so we can query the value later
@@ -1911,6 +1919,11 @@ sub get_linux_fs_util {
             $linux_hosts{$key}{linux_fs}{_grid}{mount_point} = "/grid";                  		#save as a hash element instead of a hash key so we can query the value later
             print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_grid}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_grid}{hrStorageIndex} \n" if ($verbose eq "yes");
          }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/backup$/ ) {  					#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_backup}{hrStorageIndex} = $1;                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_backup}{mount_point} = "/backup";        			#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_backup}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_backup}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
          if ( /hrStorageDescr.([0-9]+) = STRING: \/systembackup$/ ) {  					#find the appropriate filesystem mount point
             $linux_hosts{$key}{linux_fs}{_systembackup}{hrStorageIndex} = $1;                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
             $linux_hosts{$key}{linux_fs}{_systembackup}{mount_point} = "/systembackup";        		#save as a hash element instead of a hash key so we can query the value later
@@ -1922,15 +1935,45 @@ sub get_linux_fs_util {
             print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_db_backup}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_db_backup}{hrStorageIndex} \n" if ($verbose eq "yes");
          }
          if ( /hrStorageDescr.([0-9]+) = STRING: \/data$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_db_backup}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_db_backup}{mount_point} = "/data";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_db_backup}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_db_backup}{hrStorageIndex} \n" if ($verbose eq "yes");
+            $linux_hosts{$key}{linux_fs}{_data}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_data}{mount_point} = "/data";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_data}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_data}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/u01$/ ) {  						#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_u01}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_u01}{mount_point} = "/u01";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u01}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u01}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/u02$/ ) {  						#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_u02}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_u02}{mount_point} = "/u02";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u02}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u02}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/u03$/ ) {  						#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_u03}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_u03}{mount_point} = "/u03";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u03}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u03}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/u04$/ ) {  						#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_u04}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_u04}{mount_point} = "/u04";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u04}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u04}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/u05$/ ) {  						#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_u05}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_u05}{mount_point} = "/u05";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u05}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u05}{hrStorageIndex} \n" if ($verbose eq "yes");
+         }
+         if ( /hrStorageDescr.([0-9]+) = STRING: \/u06$/ ) {  						#find the appropriate filesystem mount point
+            $linux_hosts{$key}{linux_fs}{_u06}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
+            $linux_hosts{$key}{linux_fs}{_u06}{mount_point} = "/u06";   	               		#save as a hash element instead of a hash key so we can query the value later
+            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u06}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u06}{hrStorageIndex} \n" if ($verbose eq "yes");
          }
       }                                                                					#end of while loop
       close IN;                                                         				#close filehandle
       #
       #
-      @mount_points = ("root","_home","_repo01","_apps_oracle","_oracle","_grid","_systembackup","_db_backup","_backup");	#define array elements for filesystem mount points, substitute / character for _ because / is not a legal hash key character
+      @mount_points = ("root","_home","_repo01","_repo02","_apps_oracle","_oracle","_grid","_backup","_systembackup","_db_backup","_data","_u01","_u02","_u03","_u04","_u05","_u06");	#define array elements for filesystem mount points, substitute / character for _ because / is not a legal hash key character
       for $mount_point (@mount_points) {								#loop through for each mount point
          #
          # Now that we know the appropriate hrStorageIndex, get the hrStorageAllocationUnits
@@ -2047,6 +2090,9 @@ sub get_san_multipath_linux_status {
       close IN;                                                                 	#close filehandle
    } 											#end of foreach loop
 } 											#end of subroutine
+
+
+
 
 
 
@@ -3337,6 +3383,24 @@ sub get_linux_status {
       }                                                                                         #end of while loop
       print "   daemons:$linux_hosts{$key}{oracle_databases} \n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
+      #
+      # check number of days since Linux patching
+      #
+      $linux_hosts{$key}{days_since_patch} = 9999;  		             			#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{linux_version}    = "unknown";  	             			#initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_patch";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         if ( /days_since_patch=([0-9]+)/ ) {                                                   #find number of days since last patch
+            $linux_hosts{$key}{days_since_patch} = $1; 			                       	
+         } 	 										#end of if block
+         if ( /linux_version=([A-Za-z0-9_\.]+)/ ) {                                            	#find linux version (ie RHEL8.7  OL8.6 CentOS9 )
+            $linux_hosts{$key}{linux_version} = $1; 			                       	
+         } 	 										#end of if block
+      }                                                                                         #end of while loop
+      print "   linux_version:$linux_hosts{$key}{linux_version} days_since_patch:$linux_hosts{$key}{days_since_patch} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
 
@@ -3539,8 +3603,8 @@ sub generate_html_report_linux_hosts {
    # Create the HTML table for Linux hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=13> Linux Hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> NTP <td> root pw age <td>other pw <td> daemons <td>Oracle DB <td> SNMP <td> CPU util <td> RAM util<td> Paging Space util <td> Disk util \n";
+   print OUT "<tr bgcolor=gray><td colspan=15> Linux Hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> NTP <td> root pw age <td>other pw <td> daemons <td>Oracle DB <td> SNMP <td> CPU util <td> RAM util<td> Paging Space util <td> OS version <td>Days since patch <td> Disk util \n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3647,6 +3711,20 @@ sub generate_html_report_linux_hosts {
       $bgcolor = "orange" if ( ($linux_hosts{$key}{paging}{hrStorageUsed_pct} > 50) && ($linux_hosts{$key}{paging}{hrStorageUsed_pct} <= 75) );
       $bgcolor = "red"    if (  $linux_hosts{$key}{paging}{hrStorageUsed_pct} > 75);
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{paging}{hrStorageUsed_pct}\% \n";
+      #
+      # print Linux version (ie RHEL8.7) in table row
+      #
+      $bgcolor = "green";								#initialize variable
+      $bgcolor = "orange" if ( $linux_hosts{$key}{linux_version} eq "unknown" );
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{linux_version} \n";
+      #
+      # print number of days since last OS patching in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{days_since_patch} <= 180);
+      $bgcolor = "orange" if ( ($linux_hosts{$key}{days_since_patch} > 180) && ($linux_hosts{$key}{days_since_patch} <= 365) );
+      $bgcolor = "red"    if (  $linux_hosts{$key}{days_since_patch} > 365);
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{days_since_patch} \n";
       #
       # print Linux / root filesystem space utilization in table row
       #
