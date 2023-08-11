@@ -45,6 +45,7 @@
 # 2023-05-10	njeffrey        Add column to Linux hosts output table showing days since last patch
 # 2023-05-10	njeffrey        Add column to Linux hosts output table showing Linux version (examples: RHEL8.6 CentOS9 OL8.6 )
 # 2023-06-26	njeffrey        Add Linux filesystem mount points /repo02 /u01 /u02 /u03 /u04 /u05 /u06 /backup
+# 2023-08-11	njeffrey        Refactor get_linux_fs_util subroutine to detect all mount point names instead of hard-coding mount points
 
 
 
@@ -90,10 +91,10 @@ my (@idrac8_hostnames,%idrac8_hosts,@idrac9_hostnames,%idrac9_hosts,@ibm_imm2_ho
 my (@brocade_hostnames,%brocade_hosts,@unisphere_hostnames,%unisphere_hosts,@flashsystem_hostnames,%flashsystem_hosts,@netapp_hostnames,%netapp_hosts,@qnap_hostnames,%qnap_hosts); #SAN storage
 my (@ciscoios_hostnames,%ciscoios_hosts,@fortigate_hostnames,%fortigate_hosts,@mikrotik_swos_hostnames,%mikrotik_swos_hosts);                           #networking 
 my (@san_multipath_linux_hostnames,%san_multipath_linux_hosts);
-my ($key,$config_file,$output_file,$bgcolor,$fontcolor);
+my ($key,$key2,$config_file,$output_file,$bgcolor,$fontcolor);
 my ($to,$from,$subject,$sendmail);
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst); 
-my ($count,$drive_letter,@drive_letters,$mount_point,@mount_points);
+my ($count,$drive_letter,@drive_letters);
 my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
 
@@ -1784,11 +1785,14 @@ sub get_windows_drive_util {
 
 
 
+
+
+
 sub get_linux_fs_util {
    #
    print "running get_linux_fs_util subroutine \n" if ($verbose eq "yes");
    #
-   # get CPU details
+   # get storage details
    #
    # .1.3.6.1.2.1.25.2.3.1     hrStorageTable
    # .1.3.6.1.2.1.25.2.3.1.1   hrStorageTable.hrStorageIndex
@@ -1842,210 +1846,67 @@ sub get_linux_fs_util {
       next unless ( $linux_hosts{$key}{os}   eq "Linux");						#skip this subroutine for any hosts not running Windows operating system
       $oid = ".1.3.6.1.2.1.25.2.3.1";									#SNMP OID for hrStorageTable
       $cmd = "$snmpwalk -v 1 -c $community $linux_hosts{$key}{hostname} $oid";				#search through the hrStorageType to find hrStorageVirtualMemory
-      print "   running command to check hrStorageType on host $linux_hosts{$key}{hostname}: $cmd \n" if ($verbose eq "yes");
+      print "   running command to check hrStorageTable on host $linux_hosts{$key}{hostname}: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
       while (<IN>) {                                                   	 				#read a line from the command output
-         # output should look similar to:
-         # $ snmpwalk   -v 1 -c public myhost01 .1.3.6.1.2.1.25.2.3.1
-         # HOST-RESOURCES-MIB::hrStorageIndex.1 = INTEGER: 1
-         # HOST-RESOURCES-MIB::hrStorageIndex.3 = INTEGER: 3
-         # HOST-RESOURCES-MIB::hrStorageIndex.6 = INTEGER: 6
-         # HOST-RESOURCES-MIB::hrStorageIndex.7 = INTEGER: 7
-         # HOST-RESOURCES-MIB::hrStorageIndex.8 = INTEGER: 8
-         # HOST-RESOURCES-MIB::hrStorageIndex.10 = INTEGER: 10
-         # HOST-RESOURCES-MIB::hrStorageIndex.35 = INTEGER: 35
-         # HOST-RESOURCES-MIB::hrStorageIndex.37 = INTEGER: 37
-         # HOST-RESOURCES-MIB::hrStorageIndex.38 = INTEGER: 38
-         # HOST-RESOURCES-MIB::hrStorageIndex.52 = INTEGER: 52
-         # HOST-RESOURCES-MIB::hrStorageIndex.58 = INTEGER: 58
-         # HOST-RESOURCES-MIB::hrStorageIndex.59 = INTEGER: 59
-         # HOST-RESOURCES-MIB::hrStorageType.1 = OID: HOST-RESOURCES-TYPES::hrStorageRam
-         # HOST-RESOURCES-MIB::hrStorageType.3 = OID: HOST-RESOURCES-TYPES::hrStorageVirtualMemory
-         # HOST-RESOURCES-MIB::hrStorageType.6 = OID: HOST-RESOURCES-TYPES::hrStorageOther
-         # HOST-RESOURCES-MIB::hrStorageType.7 = OID: HOST-RESOURCES-TYPES::hrStorageOther
-         # HOST-RESOURCES-MIB::hrStorageType.8 = OID: HOST-RESOURCES-TYPES::hrStorageOther
-         # HOST-RESOURCES-MIB::hrStorageType.10 = OID: HOST-RESOURCES-TYPES::hrStorageVirtualMemory
-         # HOST-RESOURCES-MIB::hrStorageType.35 = OID: HOST-RESOURCES-TYPES::hrStorageFixedDisk          	<---- there are multiple hrStorageFixedDisk
-         # HOST-RESOURCES-MIB::hrStorageType.37 = OID: HOST-RESOURCES-TYPES::hrStorageFixedDisk
-         # HOST-RESOURCES-MIB::hrStorageType.38 = OID: HOST-RESOURCES-TYPES::hrStorageFixedDisk
-         # HOST-RESOURCES-MIB::hrStorageType.52 = OID: HOST-RESOURCES-TYPES::hrStorageFixedDisk
-         # HOST-RESOURCES-MIB::hrStorageType.58 = OID: HOST-RESOURCES-TYPES::hrStorageFixedDisk
-         # HOST-RESOURCES-MIB::hrStorageType.59 = OID: HOST-RESOURCES-TYPES::hrStorageFixedDisk
-         # HOST-RESOURCES-MIB::hrStorageDescr.1 = STRING: Physical memory
-         # HOST-RESOURCES-MIB::hrStorageDescr.3 = STRING: Virtual memory
-         # HOST-RESOURCES-MIB::hrStorageDescr.6 = STRING: Memory buffers
-         # HOST-RESOURCES-MIB::hrStorageDescr.7 = STRING: Cached memory
-         # HOST-RESOURCES-MIB::hrStorageDescr.8 = STRING: Shared memory
-         # HOST-RESOURCES-MIB::hrStorageDescr.10 = STRING: Swap space
-         # HOST-RESOURCES-MIB::hrStorageDescr.35 = STRING: /dev/shm
-         # HOST-RESOURCES-MIB::hrStorageDescr.37 = STRING: /run
-         # HOST-RESOURCES-MIB::hrStorageDescr.38 = STRING: /sys/fs/cgroup
-         # HOST-RESOURCES-MIB::hrStorageDescr.52 = STRING: /							<---- so we find the filesystem name 
-         # HOST-RESOURCES-MIB::hrStorageDescr.58 = STRING: /boot
-         # HOST-RESOURCES-MIB::hrStorageDescr.59 = STRING: /run/user/9005
          #
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{root}{hrStorageIndex} = $1;                   			#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{root}{mount_point} = "/";                   			#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{root}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{root}{hrStorageIndex} \n" if ($verbose eq "yes");
+         if ( /hrStorageIndex.([0-9]+) = INTEGER: ([0-9]+)/ ) {  					#find the appropriate hrStorageIndex value for indexing all the storage devices
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} = $2;                   			#use the hrStorageIndex as the hash key
+            print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} \n" if ($verbose eq "yes");
          }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/home$/ ) { 	 					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_home}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_home}{mount_point} = "/home";                  		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_home}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_home}{hrStorageIndex} \n" if ($verbose eq "yes");
+         if ( /hrStorageType.([0-9]+) = OID: HOST-RESOURCES-TYPES::([a-zA-Z]+)/ ) {			#parse out the hrStorageType
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageType} = $2;                   			#use the hrStorageIndex as the hash key
+            print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} hrStorageType:$linux_hosts{$key}{linux_fs}{$1}{hrStorageType} \n" if ($verbose eq "yes");
          }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/repo01$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_repo01}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_repo01}{mount_point} = "/repo01";                  		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_repo01}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_repo01}{hrStorageIndex} \n" if ($verbose eq "yes");
+         if ( /hrStorageDescr.([0-9]+) = STRING: ([a-zA-Z0-9:_\-\/ \\]+)/ ) {				#parse out the hrStorageDescr
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageDescr} = $2;                   			#use the hrStorageDescr as the hash key
+            print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} hrStorageDescr:$linux_hosts{$key}{linux_fs}{$1}{hrStorageDescr} \n" if ($verbose eq "yes");
          }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/repo02$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_repo02}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_repo02}{mount_point} = "/repo02";                  		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_repo02}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_repo02}{hrStorageIndex} \n" if ($verbose eq "yes");
+         if ( /hrStorageAllocationUnits.([0-9]+) = INTEGER: ([0-9]+)/ ) {				#parse out the hrStorageAllocationUnits
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageAllocationUnits} = $2;                   		#use the hrStorageIndex as the hash key
+            print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} hrStorageAllocationUnits:$linux_hosts{$key}{linux_fs}{$1}{hrStorageAllocationUnits} \n" if ($verbose eq "yes");
          }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/apps\/oracle$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_apps_oracle}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_apps_oracle}{mount_point} = "/apps/oracle";                  	#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_apps_oracle}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_apps_oracle}{hrStorageIndex} \n" if ($verbose eq "yes");
+         if ( /hrStorageSize.([0-9]+) = INTEGER: ([0-9]+)/ ) {						#parse out the hrStorageSize
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageSize} = $2;                   			#use the hrStorageIndex as the hash key
+            print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} hrStorageSize:$linux_hosts{$key}{linux_fs}{$1}{hrStorageSize} \n" if ($verbose eq "yes");
          }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/oracle$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_oracle}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_oracle}{mount_point} = "/oracle";                  		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_oracle}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_oracle}{hrStorageIndex} \n" if ($verbose eq "yes");
+         if ( /hrStorageUsed.([0-9]+) = INTEGER: ([0-9]+)/ ) {						#parse out the hrStorageUsed
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageUsed} = $2;                   			#use the hrStorageIndex as the hash key
+            print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} hrStorageUsed:$linux_hosts{$key}{linux_fs}{$1}{hrStorageUsed} \n" if ($verbose eq "yes");
          }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/grid$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_grid}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_grid}{mount_point} = "/grid";                  		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_grid}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_grid}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/backup$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_backup}{hrStorageIndex} = $1;                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_backup}{mount_point} = "/backup";        			#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_backup}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_backup}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/systembackup$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_systembackup}{hrStorageIndex} = $1;                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_systembackup}{mount_point} = "/systembackup";        		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_systembackup}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_systembackup}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/db\/backup$/ ) {  					#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_db_backup}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_db_backup}{mount_point} = "/db/backup";                  	#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_db_backup}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_db_backup}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/data$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_data}{hrStorageIndex} = $1;                   		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_data}{mount_point} = "/data";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_data}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_data}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/u01$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_u01}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_u01}{mount_point} = "/u01";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u01}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u01}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/u02$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_u02}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_u02}{mount_point} = "/u02";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u02}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u02}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/u03$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_u03}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_u03}{mount_point} = "/u03";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u03}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u03}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/u04$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_u04}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_u04}{mount_point} = "/u04";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u04}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u04}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/u05$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_u05}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_u05}{mount_point} = "/u05";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u05}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u05}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-         if ( /hrStorageDescr.([0-9]+) = STRING: \/u06$/ ) {  						#find the appropriate filesystem mount point
-            $linux_hosts{$key}{linux_fs}{_u06}{hrStorageIndex} = $1; 	                  		#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
-            $linux_hosts{$key}{linux_fs}{_u06}{mount_point} = "/u06";   	               		#save as a hash element instead of a hash key so we can query the value later
-            print "      host:$linux_hosts{$key}{hostname}  mount_point:$linux_hosts{$key}{linux_fs}{_u06}{mount_point}  hrStorageIndex:$linux_hosts{$key}{linux_fs}{_u06}{hrStorageIndex} \n" if ($verbose eq "yes");
-         }
-      }                                                                					#end of while loop
+      } 												#end of while loop
       close IN;                                                         				#close filehandle
       #
+      # At this point, we have all the details in a hash that looks like this:
+      #  $linux_hosts{hostname}{linux_fs}{1}{hrStorageIndex}           = 1                              # hrStorageIndex is used as the hash key
+      #                                     {hrStorageType}            = hrStorageFixedDisk
+      #                                     {hrStorageDescr}           = /path/to/fs1
+      #                                     {hrStorageAllocationUnits} = SomeInteger
+      #                                     {hrStorageSize}            = SomeInteger
+      #                                     {hrStorageUsed}            = SomeInteger
+      #  $linux_hosts{hostname}{linux_fs}{2}{hrStorageIndex}           = 2 				# hrStorageIndex is used as the hash key
+      #                                     {hrStorageType}            = hrStorageFixedDisk
+      #                                     {hrStorageDescr}            = /path/to/fs2
+      #                                     {hrStorageAllocationUnits} = 4096
+      #                                     {hrStorageAllocationUnits} = SomeInteger
+      #                                     {hrStorageSize}            = SomeInteger
+      #                                     {hrStorageUsed}            = SomeInteger
       #
-      @mount_points = ("root","_home","_repo01","_repo02","_apps_oracle","_oracle","_grid","_backup","_systembackup","_db_backup","_data","_u01","_u02","_u03","_u04","_u05","_u06");	#define array elements for filesystem mount points, substitute / character for _ because / is not a legal hash key character
-      for $mount_point (@mount_points) {								#loop through for each mount point
+      # Based on the above values, convert bytes to GB, and calculate free space
+      foreach $key2 (keys(%{$linux_hosts{$key}{linux_fs}})) {						#$keys2 loops through each hrStorageIndex hash key
          #
-         # Now that we know the appropriate hrStorageIndex, get the hrStorageAllocationUnits
-         #
-         next unless ($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageIndex});			#break out of foreach loop if the previous section failed to determine the hrStorageIndex
-         $oid = ".1.3.6.1.2.1.25.2.3.1.4.$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageIndex}";	#SNMP OID for       hrStorageTable.hrStorageAllocationUnits.IndexNumber
-         $cmd = "$snmpget -v 1 -c $community $linux_hosts{$key}{hostname} $oid";			#get the value from hrStorageTable.hrStorageAllocationUnits.IndexNumber
-         print "   running command to check hrStorageAllocationUnits for host:$linux_hosts{$key}{hostname} mount point $linux_hosts{$key}{linux_fs}{$mount_point}{mount_point}: $cmd \n" if ($verbose eq "yes");
-         open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
-         while (<IN>) {                                                   	 			#read a line from the command output
-            # output should look similar to:
-            # $ snmpwalk   -v 1 -c public myhost01 .1.3.6.1.2.1.25.2.3.1.4.X
-            # HOST-RESOURCES-MIB::hrStorageAllocationUnits.4 = INTEGER: 65536 Bytes
-            #
-            if ( /INTEGER: ([0-9]+) Bytes/ ) {    							#find the size of each allocation unit
-               $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageAllocationUnits} = $1;		#value for hrStorageTable.hrStorageAllocationUnits.IndexNumber
-               print "      host:$linux_hosts{$key}{hostname} hrStorageAllocationUnits:$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageAllocationUnits} \n" if ($verbose eq "yes");
-            }
-         }                                                                				#end of while loop
-         close IN;                                                         				#close filehandle
-         #
-         # Now that we know the appropriate hrStorageIndex, get the hrStorageSize
-         #
-         next unless ($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageIndex});			#break out of foreach loop if the previous section failed to determine the hrStorageIndex
-         $oid = ".1.3.6.1.2.1.25.2.3.1.5.$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageIndex}";	#SNMP OID for       hrStorageTable.hrStorageSize.IndexNumber
-         $cmd = "$snmpget -v 1 -c $community $linux_hosts{$key}{hostname} $oid";			#get the value from hrStorageTable.hrStorageSize.IndexNumber
-         print "   running command to check hrStorageSize for host:$linux_hosts{$key}{hostname} mount_point:$linux_hosts{$key}{linux_fs}{$mount_point}{mount_point}: $cmd \n" if ($verbose eq "yes");
-         open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
-         while (<IN>) {                                                   	 			#read a line from the command output
-            # output should look similar to:
-            # $ snmpwalk   -v 1 -c public myhost01 .1.3.6.1.2.1.25.2.3.1.5.X
-            # HOST-RESOURCES-MIB::hrStorageSize.4 = INTEGER: 522635
-            #
-            if ( /INTEGER: ([0-9]+)/ ) {    								#find the value
-               $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize} = $1;				#value for hrStorageTable.hrStorageSize.IndexNumber
-               $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize_GB} = sprintf("%.1f", $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageAllocationUnits}*$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize}/1024/1024/1024); #convert to GB
-               print "      host:$linux_hosts{$key}{hostname} hrStorageSize:$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize_GB} GB \n" if ($verbose eq "yes");
-            }
-         }                                                                				#end of while loop
-         close IN;                                                         				#close filehandle
-         #
-         # Now that we know the appropriate hrStorageIndex, get the hrStorageUsed 
-         #
-         next unless ($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageIndex});			#break out of foreach loop if the previous section failed to determine the hrStorageIndex
-         $oid = ".1.3.6.1.2.1.25.2.3.1.6.$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageIndex}";	#SNMP OID for       hrStorageTable.hrStorageUsed.IndexNumber
-         $cmd = "$snmpget -v 1 -c $community $linux_hosts{$key}{hostname} $oid";			#get the value from hrStorageTable.hrStorageUsed.IndexNumber
-         print "   running command to check hrStorageUsed for host:$linux_hosts{$key}{hostname} mount_point:$linux_hosts{$key}{linux_fs}{$mount_point}{mount_point}: $cmd \n" if ($verbose eq "yes");
-         open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
-         while (<IN>) {                                                   	 			#read a line from the command output
-            # output should look similar to:
-            # $ snmpwalk   -v 1 -c public myhost01 .1.3.6.1.2.1.25.2.3.1.6.X
-            # HOST-RESOURCES-MIB::hrStorageUsed.4 = INTEGER: 261948
-            #
-            if ( /INTEGER: ([0-9]+)/ ) {    								#find the value 
-               $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed} = $1;				#value for hrStorageTable.hrStorageUsed.IndexNumber
-               $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_GB} = sprintf("%.1f", $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageAllocationUnits}*$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed}/1024/1024/1024); #convert to GB
-               print "      host:$linux_hosts{$key}{hostname}  $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_GB}GB  \n" if ($verbose eq "yes");
-            }
-         }                                                                				#end of while loop
-         close IN;                                                         				#close filehandle
-         #
-         # At this point, we know the total bytes and bytes used.  Based on those values, calculate bytes free.
-         #
-         $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageFree_GB} = ( $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize_GB} - $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_GB} );			#calculate free space
+         $linux_hosts{$key}{linux_fs}{$key2}{hrStorageSize_GB} = sprintf("%.1f", $linux_hosts{$key}{linux_fs}{$key2}{hrStorageAllocationUnits}*$linux_hosts{$key}{linux_fs}{$key2}{hrStorageSize}/1024/1024/1024); #convert to GB
+         $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_GB} = sprintf("%.1f", $linux_hosts{$key}{linux_fs}{$key2}{hrStorageAllocationUnits}*$linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed}/1024/1024/1024); #convert to GB
+         $linux_hosts{$key}{linux_fs}{$key2}{hrStorageFree_GB} = sprintf("%.1f", $linux_hosts{$key}{linux_fs}{$key2}{hrStorageSize_GB} - $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_GB} );		   #free space
          #
          # Let's also calculate percentages.
          #
-         $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct} = sprintf( "%.1f", $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed} / $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize} * 100 );	#convert to percentage
-         $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageFree_pct} = sprintf( "%.1f", (100 - $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct}) );					#calculate free percentage
+         $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} = sprintf( "%.1f", $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed} / $linux_hosts{$key}{linux_fs}{$key2}{hrStorageSize} * 100 );	#convert to percentage
+         $linux_hosts{$key}{linux_fs}{$key2}{hrStorageFree_pct} = sprintf( "%.1f", (100 - $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}) );							#calculate free percentage
          #
-         print "      host:$linux_hosts{$key}{hostname}  TotalSize:$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageSize_GB}GB hrStorageUsed:$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_GB}GB($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct}\%)  hrStorageFree:$linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageFree_GB}GB($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageFree_pct}\%) \n" if ($verbose eq "yes");
-      } 												#end of for loop
+         next unless ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageType} eq "hrStorageFixedDisk");	#we are only interested in fixed disks at the moment, so skip hrStorageType=Physical Memory, Virtual Memory, etc.
+         print "      host:$linux_hosts{$key}{hostname}  Mountpoint:$linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} TotalSize:$linux_hosts{$key}{linux_fs}{$key2}{hrStorageSize_GB}GB hrStorageUsed:$linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_GB}GB($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}\%)  hrStorageFree:$linux_hosts{$key}{linux_fs}{$key2}{hrStorageFree_GB}GB($linux_hosts{$key}{linux_fs}{$key2}{hrStorageFree_pct}\%) \n" if ($verbose eq "yes");
+      } 												#end of foreach loop
    } 													#end of foreach loop
 } 													#end of subroutine
 
@@ -3726,22 +3587,31 @@ sub generate_html_report_linux_hosts {
       $bgcolor = "red"    if (  $linux_hosts{$key}{days_since_patch} > 365);
       print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{days_since_patch} \n";
       #
-      # print Linux / root filesystem space utilization in table row
+      # print Linux filesystem space utilization in table row
       #
       $bgcolor = "white";								#initialize variable
       print OUT "    <td bgcolor=$bgcolor> \n" if ($linux_hosts{$key}{os} eq "Linux");	#start the HTML table data for Linux hosts
-      for $mount_point (@mount_points) {						#loop through for each drive letter a..z  
-         next unless ( defined($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct}) );			#only run this section if the required hash element exists
-         $fontcolor = "black";								#initialize variable
-         $fontcolor = "green"  if (  $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct} <= 80 );
-         $fontcolor = "orange" if ( ($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct}  > 80 ) && ($linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct} <= 90) );
-         $fontcolor = "red"    if (  $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct}  > 90 );
-         print OUT "    <br><font color=$fontcolor> $linux_hosts{$key}{linux_fs}{$mount_point}{mount_point}    $linux_hosts{$key}{linux_fs}{$mount_point}{hrStorageUsed_pct}\% \n";
-      } 										#end of if block
+      # Figure out which filesystem names we want to see in the report
+      foreach $key2 (keys(%{$linux_hosts{$key}{linux_fs}})) {						#$keys2 loops through each hrStorageIndex hash key
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageType} ne "hrStorageFixedDisk" );	#skip any hash entries that are not of the type hrStorageFixedDisk
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/dev\// );			#skip any pseudo-filesystems that begin with /dev/ 
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/sys\// );			#skip any pseudo-filesystems that begin with /sys/ 
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run\// );			#skip any pseudo-filesystems that begin with /run/ 
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run$/ );			#skip the pseudo-filesystems named /run (no trailing slash)
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/containers/ );	#skip any filesystems used by docker or podman containers
+         $fontcolor = "black";										#initialize variable
+         $fontcolor = "green"  if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 80 );
+         $fontcolor = "orange" if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}  > 80 ) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );
+         $fontcolor = "red"    if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}  > 90 );
+         print OUT "    <br><font color=$fontcolor> $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr}    $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}\% \n";
+      } 												#end of foreach loop
    } 											#end of foreach loop
    # print HTML table footer 
    print OUT "</table><p>\&nbsp\;</p> \n";
 }											#end of subroutine
+
+
+
 
 
 
