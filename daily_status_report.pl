@@ -46,6 +46,7 @@
 # 2023-05-10	njeffrey        Add column to Linux hosts output table showing Linux version (examples: RHEL8.6 CentOS9 OL8.6 )
 # 2023-06-26	njeffrey        Add Linux filesystem mount points /repo02 /u01 /u02 /u03 /u04 /u05 /u06 /backup
 # 2023-08-11	njeffrey        Refactor get_linux_fs_util subroutine to detect all mount point names instead of hard-coding mount points
+# 2024-05-16	njeffrey        Add get_linux_security_posture subroutine for Linux security posture status (selinux status, antmalware agents like Arctic Wolf, Crowdstrike, etc)
 
 
 
@@ -1954,6 +1955,71 @@ sub get_san_multipath_linux_status {
 
 
 
+sub get_linux_security_posture {
+   #
+   print "running get_linux_security_posture subroutine \n" if ($verbose eq "yes");
+   #
+   # query all the Linux hosts to get assorted security posture settings via SSH
+   # This assues there is already a nagios monitoring system in place with preshared ssh keys
+   #
+   foreach $key (sort keys %linux_hosts) {
+      #
+      # confirm SSH key pair authentication is working
+      #
+      $linux_hosts{$key}{ssh} = "unknown";                                                      #initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} hostname";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         if ( /[a-zA-Z0-9]+/ ) {                                                                #find output of the "hostname" command
+            $linux_hosts{$key}{ssh} = "OK";                                                     #set the hash element to be used later as a boolean
+         } else {                                                                               #end of if block
+            s/\|.*//g;                                                                          #get rid of nagios performance data after the | character, not relevant for this report
+            $linux_hosts{$key}{ssh} = "unknown";                                                #if SSH is not OK, set hash element
+         }                                                                                      #end of if/else block
+      }                                                                                         #end of while loop
+      print "   SSH:$linux_hosts{$key}{ssh} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+      next unless ( $linux_hosts{$key}{ssh} eq "OK" );                                          #break out of subroutine if SSH is not working
+      #
+      # get assorted details about security posture on remote Linux machine
+      #
+      $linux_hosts{$key}{linux_version}    = "unknown";                        			#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{days_since_patch} = 0;                                         	#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{selinux}          = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{firewall}         = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{fail2ban}         = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{auditd}           = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{fapolicyd}        = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{aide}             = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{arcticwolf}       = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{crowdstrike}      = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{sentinelone}      = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{clamav}           = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{msdefender}       = "unknown";                                         #initialize hash element to avoid undef errors
+      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_security_posture";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the filehandle
+         $linux_hosts{$key}{linux_version}    = $1 if (/linux_version:([a-zA-Z0-9_\-\.]+)/ );
+         $linux_hosts{$key}{days_since_patch} = $1 if (/days_since_patch:([0-9]+)/         );
+         $linux_hosts{$key}{selinux}          = $1 if (/selinux:([a-zA-Z0-9]+)/            );
+         $linux_hosts{$key}{firewall}         = $1 if (/firewall:([a-zA-Z0-9]+)/           );
+         $linux_hosts{$key}{fail2ban}         = $1 if (/fail2ban:([a-zA-Z0-9]+)/           );
+         $linux_hosts{$key}{auditd}           = $1 if (/auditd:([a-zA-Z0-9]+)/             );
+         $linux_hosts{$key}{fapolicyd}        = $1 if (/fapolicyd:([a-zA-Z0-9]+)/          );
+         $linux_hosts{$key}{aide}             = $1 if (/aide:([a-zA-Z0-9]+)/               );
+         $linux_hosts{$key}{arcticwolf}       = $1 if (/arcticwolf:([a-zA-Z0-9]+)/         );
+         $linux_hosts{$key}{crowdstrike}      = $1 if (/crowdstrike:([a-zA-Z0-9]+)/        );
+         $linux_hosts{$key}{sentinelone}      = $1 if (/sentinelone:([a-zA-Z0-9]+)/        );
+         $linux_hosts{$key}{clamav}           = $1 if (/clamav:([a-zA-Z0-9]+)/             );
+         $linux_hosts{$key}{msdefender}       = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
+      }                                                                                         #end of while loop
+      print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+   }                                                                                            #end of foreach loop
+}                                                                                               #end of subroutine
+
 
 
 
@@ -3686,6 +3752,126 @@ sub generate_html_report_san_multipath_linux_hosts {
 
 
 
+sub generate_html_report_linux_security_posture {
+   #
+   print "running generate_html_report_linux_security_posture subroutine \n" if ($verbose eq "yes");
+   #
+   #
+   return unless (@linux_hostnames);					#break out of subroutine if no hostnames are defined
+   # Create the HTML table for Linux hosts
+   #
+   print OUT "<table border=1> \n";
+   print OUT "<tr bgcolor=gray><td colspan=15> Security posture on Linux hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender \n";
+   foreach $key (sort keys %linux_hosts) {
+      #
+      # print hostname field in table row
+      #
+      $bgcolor = "white"; 
+      print OUT "<tr><td>$linux_hosts{$key}{hostname} \n" ;
+      #
+      # print ping status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if ( $linux_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $linux_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $linux_hosts{$key}{ping} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $linux_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # OS version in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{linux_version} \n";
+      #
+      # days since last patching in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{days_since_patch} \n";
+      #
+      # selinux status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{selinux} eq "Enforcing");
+      $bgcolor = "red"    if (  $linux_hosts{$key}{selinux} eq "Disabled");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{selinux} \n";
+      #
+      # firewall status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{firewall} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{firewall} \n";
+      #
+      # fail2ban status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{fail2ban} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{fail2ban} \n";
+      #
+      # auditd status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{auditd} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{auditd} \n";
+      #
+      # fapolicyd status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{fapolicyd} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{fapolicyd} \n";
+      #
+      # AIDE status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "white"  if (  $linux_hosts{$key}{aide} eq "no");			#no color if AIDE is not installed
+      $bgcolor = "green"  if (  $linux_hosts{$key}{aide} =~ /[0-9]/); 			#green if last database update was single digit number of days
+      $bgcolor = "green"  if (  $linux_hosts{$key}{aide} =~ /[0-9][0-9]/); 		#green if last database update was double digit number of days
+      $bgcolor = "red"    if (  $linux_hosts{$key}{aide} =~ /[0-9][0-9][0-9]/); 	#red   if last database update was triple digit number of days
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{aide} \n";
+      #
+      # Arctic Wolf status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{arcticwolf} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{arcticwolf} \n";
+      #
+      # Crowdstrike Falcon Sensor status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{crowdstrike} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{crowdstrike} \n";
+      #
+      # Sentinel One status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{sentinelone} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{sentinelone} \n";
+      #
+      # ClamAV status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{clamav} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{clamav} \n";
+      #
+      # Microsoft Defender Advanced Threat Protection Endpoint status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{msdefender} eq "active");
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{msdefender} \n";
+   } 											#end of foreach loop
+   # print HTML table footer 
+   print OUT "</table><p>\&nbsp\;</p> \n";
+}											#end of subroutine
+
+
+
 
 
 
@@ -4916,8 +5102,9 @@ get_paging_space_util_linux;
 get_paging_space_util_windows;
 get_windows_drive_util;
 get_linux_fs_util;
-get_san_multipath_linux_status;
 get_linux_status;   #miscellaneous SSH-based checks
+get_linux_security_posture;
+get_san_multipath_linux_status;
 get_aix_status;
 #
 # check service processors
@@ -4946,8 +5133,9 @@ get_mikrotik_swos_status;
 # generate HTML report of all devices that were found
 #
 generate_html_report_header;			#just create the initial HTML header for the report
-generate_html_report_linux_hosts;		#if any linux       hosts exist, add them to the report 
+generate_html_report_linux_hosts;		#if any linux            hosts exist, add them to the report 
 generate_html_report_san_multipath_linux_hosts;	#if any bare-metal linux hosts exist, add them to the report 
+generate_html_report_linux_security_posture;    #if any linux            hosts exist, add them to the report
 generate_html_report_aix_hosts;         	#if any aix              hosts exist, add them to the report
 generate_html_report_windows_hosts;		#if any windows          hosts exist, add them to the report 
 generate_html_report_idrac9_hosts;		#if any idrac9           hosts exist, add them to the report 
