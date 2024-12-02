@@ -47,6 +47,8 @@
 # 2023-06-26	njeffrey        Add Linux filesystem mount points /repo02 /u01 /u02 /u03 /u04 /u05 /u06 /backup
 # 2023-08-11	njeffrey        Refactor get_linux_fs_util subroutine to detect all mount point names instead of hard-coding mount points
 # 2024-05-16	njeffrey        Add get_linux_security_posture subroutine for Linux security posture status (selinux status, antmalware agents like Arctic Wolf, Crowdstrike, etc)
+# 2024-10-02	Njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/overlay/ 
+# 2024-12-02	Njeffrey        Add configuration flags used by get_linux_security_posture subroutine to allow for items (ie CrowdStrike) to be defined as mandatory
 
 
 
@@ -98,19 +100,32 @@ my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
 my ($count,$drive_letter,@drive_letters);
 my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
+my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender);
 
 $verbose               = "yes";									#yes/no flag to increase verbosity for debugging
 $ping                  = "/bin/ping";								#location of binary
-$ssh                   = "/usr/bin/ssh";								#location of binary
+$ssh                   = "/usr/bin/ssh";							#location of binary
 $sendmail              = "/usr/sbin/sendmail"; 		 					#location of binary
 $snmpget               = "/usr/bin/snmpget";							#location of binary
 $snmpwalk              = "/usr/bin/snmpwalk";							#location of binary
 $community             = "public";								#SNMP community name
 $output_file           = "/home/nagios/daily_status_report.html";				#location of file
-$config_file           = "/home/nagios/daily_status_report.cfg";					#location of file
+$config_file           = "/home/nagios/daily_status_report.cfg";				#location of file
 $bgcolor               = "white";								#HTML background color
 $localhost             = `hostname -s`;								#get the local hostname
 $monitoring_system_url = "";									#initialize to avoid undef errors
+$linux_selinux         = "";                							#initialize to avoid undef errors
+$linux_firewall        = "";                							#initialize to avoid undef errors
+$linux_fail2ban        = "";                							#initialize to avoid undef errors
+$linux_auditd          = "";                							#initialize to avoid undef errors
+$linux_fapolicyd       = "";                							#initialize to avoid undef errors
+$linux_aide            = "";                							#initialize to avoid undef errors
+$linux_arcticwolf      = "";                							#initialize to avoid undef errors
+$linux_crowdstrike     = "";                							#initialize to avoid undef errors
+$linux_sentinelone     = "";                							#initialize to avoid undef errors
+$linux_clamav          = "";                							#initialize to avoid undef errors
+$linux_msdefender      = "";									#initialize to avoid undef errors
+
 
 
 
@@ -223,6 +238,21 @@ sub read_config_file {
       $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				#find line in config file
       $community_brocade       = $1 if (/^community_brocade=(\S+)/);				#find line in config file
       $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);				#find line in config file
+      #
+      # Linux security posture settings
+      #
+      $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      		#find line in config file
+      $linux_firewall          = "mandatory" if (/^linux_firewall=mandatory/);       		#find line in config file
+      $linux_fail2ban          = "mandatory" if (/^linux_fail2ban=mandatory/);       		#find line in config file
+      $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);                	#find line in config file
+      $linux_fapolicyd         = "mandatory" if (/^linux_fapolicyd=mandatory/);             	#find line in config file
+      $linux_aide              = "mandatory" if (/^linux_aide=mandatory/);                	#find line in config file
+      $linux_arcticwolf        = "mandatory" if (/^linux_arcticwolf=mandatory/);                #find line in config file
+      $linux_crowdstrike       = "mandatory" if (/^linux_crowdstrike=mandatory/);               #find line in config file
+      $linux_sentinelone       = "mandatory" if (/^linux_sentinelone=mandatory/);               #find line in config file
+      $linux_clamav            = "mandatory" if (/^linux_clamav=mandatory/);               	#find line in config file
+      $linux_msdefender        = "mandatory" if (/^linux_msdefender=mandatory/); 		#find line in config file
+
    }                                                                                         	#end of while loop
    close IN;                                                                                 	#close filehandle
    #
@@ -1869,6 +1899,7 @@ sub get_linux_fs_util {
          }
          if ( /hrStorageSize.([0-9]+) = INTEGER: ([0-9]+)/ ) {						#parse out the hrStorageSize
             $linux_hosts{$key}{linux_fs}{$1}{hrStorageSize} = $2;                   			#use the hrStorageIndex as the hash key
+            $linux_hosts{$key}{linux_fs}{$1}{hrStorageSize}++ if ($linux_hosts{$key}{linux_fs}{$1}{hrStorageSize} == 0);   #add a single byte to avoid divide by zero errors for tmpfs filesystems with hrStorageSize=0
             print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} hrStorageSize:$linux_hosts{$key}{linux_fs}{$1}{hrStorageSize} \n" if ($verbose eq "yes");
          }
          if ( /hrStorageUsed.([0-9]+) = INTEGER: ([0-9]+)/ ) {						#parse out the hrStorageUsed
@@ -3665,6 +3696,7 @@ sub generate_html_report_linux_hosts {
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run\// );			#skip any pseudo-filesystems that begin with /run/ 
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run$/ );			#skip the pseudo-filesystems named /run (no trailing slash)
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/containers/ );	#skip any filesystems used by docker or podman containers
+         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/docker\/overlay/ );	#skip any filesystems used by docker or podman containers
          $fontcolor = "black";										#initialize variable
          $fontcolor = "green"  if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 80 );
          $fontcolor = "orange" if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}  > 80 ) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );
@@ -3806,64 +3838,74 @@ sub generate_html_report_linux_security_posture {
       # firewall status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{firewall} eq "active");
+      $bgcolor = "red"    if ( $linux_firewall eq "mandatory" );			#raise a red alert if firewall is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{firewall} eq "active");
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{firewall} \n";
       #
       # fail2ban status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{fail2ban} eq "active");
+      $bgcolor = "red"    if ( $linux_fail2ban eq "mandatory" );			#raise a red alert if fail2ban is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{fail2ban} eq "active");
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{fail2ban} \n";
       #
       # auditd status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{auditd} eq "active");
+      $bgcolor = "red"    if ( $linux_auditd eq "mandatory" );				#raise a red alert if auditd is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{auditd} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{auditd} \n";
       #
       # fapolicyd status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{fapolicyd} eq "active");
+      $bgcolor = "red"    if ( $linux_fapolicyd eq "mandatory" );			#raise a red alert if fapolicyd is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{fapolicyd} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{fapolicyd} \n";
       #
       # AIDE status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "white"  if (  $linux_hosts{$key}{aide} eq "no");			#no color if AIDE is not installed
-      $bgcolor = "green"  if (  $linux_hosts{$key}{aide} =~ /[0-9]/); 			#green if last database update was single digit number of days
-      $bgcolor = "green"  if (  $linux_hosts{$key}{aide} =~ /[0-9][0-9]/); 		#green if last database update was double digit number of days
-      $bgcolor = "red"    if (  $linux_hosts{$key}{aide} =~ /[0-9][0-9][0-9]/); 	#red   if last database update was triple digit number of days
+      $bgcolor = "white"  if ( $linux_hosts{$key}{aide} eq "no");			#no color if AIDE is not installed
+      $bgcolor = "green"  if ( $linux_hosts{$key}{aide} =~ /[0-9]/); 			#green if last database update was single digit number of days
+      $bgcolor = "green"  if ( $linux_hosts{$key}{aide} =~ /[0-9][0-9]/); 		#green if last database update was double digit number of days
+      $bgcolor = "red"    if ( $linux_hosts{$key}{aide} =~ /[0-9][0-9][0-9]/); 	#red   if last database update was triple digit number of days
+      $bgcolor = "red"    if ( $linux_aide eq "mandatory" );				#raise a red alert if aide is mandatory but not running
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{aide} \n";
       #
       # Arctic Wolf status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{arcticwolf} eq "active");
+      $bgcolor = "red"    if ( $linux_arcticwolf eq "mandatory" );			#raise a red alert if arcticwolf is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{arcticwolf} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{arcticwolf} \n";
       #
       # Crowdstrike Falcon Sensor status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{crowdstrike} eq "active");
+      $bgcolor = "red"   if ( $linux_crowdstrike eq "mandatory" );			#raise a red alert if crowdstrike is mandatory but not running
+      $bgcolor = "green" if ( $linux_hosts{$key}{crowdstrike} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{crowdstrike} \n";
       #
       # Sentinel One status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{sentinelone} eq "active");
+      $bgcolor = "red"    if ( $linux_sentinelone eq "mandatory" );			#raise a red alert if sentinelone is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{sentinelone} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{sentinelone} \n";
       #
       # ClamAV status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{clamav} eq "active");
+      $bgcolor = "red"    if ( $linux_clamav eq "mandatory" );				#raise a red alert if clamav is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{clamav} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{clamav} \n";
       #
       # Microsoft Defender Advanced Threat Protection Endpoint status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{msdefender} eq "active");
+      $bgcolor = "red"    if ( $linux_msdefender eq "mandatory" );			#raise a red alert if msdefender is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{msdefender} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{msdefender} \n";
    } 											#end of foreach loop
    # print HTML table footer 
