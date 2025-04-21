@@ -47,8 +47,9 @@
 # 2023-06-26	njeffrey        Add Linux filesystem mount points /repo02 /u01 /u02 /u03 /u04 /u05 /u06 /backup
 # 2023-08-11	njeffrey        Refactor get_linux_fs_util subroutine to detect all mount point names instead of hard-coding mount points
 # 2024-05-16	njeffrey        Add get_linux_security_posture subroutine for Linux security posture status (selinux status, antmalware agents like Arctic Wolf, Crowdstrike, etc)
-# 2024-10-02	Njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/overlay/ 
-# 2024-12-02	Njeffrey        Add configuration flags used by get_linux_security_posture subroutine to allow for items (ie CrowdStrike) to be defined as mandatory
+# 2024-10-02	njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/overlay/ 
+# 2024-12-02	njeffrey        Add configuration flags used by get_linux_security_posture subroutine to allow for items (ie CrowdStrike) to be defined as mandatory
+# 2025-04-21	njeffrey        Add -q parameter to ssh commands to avoid displaying /etc/motd 
 
 
 
@@ -1966,7 +1967,7 @@ sub get_san_multipath_linux_status {
       #
       #
       next unless ( $san_multipath_linux_hosts{$key}{ping} eq "up" );                   #skip hosts that do not respond to ping
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $san_multipath_linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_multipath";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $san_multipath_linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_multipath";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                          		        #open filehandle from command output
       while (<IN>) {                                                            	#read a line from the command output
@@ -1998,7 +1999,7 @@ sub get_linux_security_posture {
       # confirm SSH key pair authentication is working
       #
       $linux_hosts{$key}{ssh} = "unknown";                                                      #initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} hostname";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} hostname";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -2028,7 +2029,7 @@ sub get_linux_security_posture {
       $linux_hosts{$key}{sentinelone}      = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{clamav}           = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{msdefender}       = "unknown";                                         #initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_security_posture";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_security_posture";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the filehandle
@@ -2414,7 +2415,7 @@ sub get_lenovo_xclarity_status {
       #
       # confirm SSH is working
       #
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $xclarity_hosts{$key}{hostname} syshealth summary";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $xclarity_hosts{$key}{hostname} syshealth summary";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
       while (<IN>) {                                                            #read a line from the command output
@@ -2426,7 +2427,7 @@ sub get_lenovo_xclarity_status {
       # at this point, we know SSH is working, so continue with the rest of the checks
       #
       next unless ( $xclarity_hosts{$key}{ssh} eq "ok" );			#skip hosts that do not respond to ssh
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $xclarity_hosts{$key}{hostname} syshealth summary";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $xclarity_hosts{$key}{hostname} syshealth summary";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
       while (<IN>) {                                                            #read a line from the command output
@@ -2459,7 +2460,7 @@ sub get_lenovo_xclarity_status {
       #
       # Get the VPD (Vital Product Data) from the xClarity Controller.  We are most interested in model/serial/firmware.
       #
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes  $xclarity_hosts{$key}{hostname} vpd sys";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes  $xclarity_hosts{$key}{hostname} vpd sys";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
       while (<IN>) {                                                            #read a line from the command output
@@ -2505,7 +2506,7 @@ sub get_lenovo_xclarity_status {
       #        SS is soft shutdown (Upper critical Threshold)
       #        HS is hard shutdown (Upper non-recoverable Threshold) 
       #
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes  $xclarity_hosts{$key}{hostname} temps";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes  $xclarity_hosts{$key}{hostname} temps";
       print "   running command to get temperature readings: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
       while (<IN>) {                                                            #read a line from the command output
@@ -3226,7 +3227,7 @@ sub get_linux_status {
       # confirm SSH key pair authentication is working
       #
       $linux_hosts{$key}{ssh} = "unknown";                                                     	#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} hostname";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} hostname";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3244,7 +3245,7 @@ sub get_linux_status {
       # get NTP status utilization
       #
       $linux_hosts{$key}{ntp} = "unknown";                                                     	#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_time_sync";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_time_sync";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3262,7 +3263,7 @@ sub get_linux_status {
       #
       $linux_hosts{$key}{root_password_age_days} = 99999;               			#initialize hash element to avoid undef errors
       $linux_hosts{$key}{root_password_age}      = "UNKNOWN";               			#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180 --user=root";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180 --user=root";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3290,7 +3291,7 @@ sub get_linux_status {
       # Unlike the previous section, this just gives an "OK" rather than the number of days.
       #
       $linux_hosts{$key}{unix_password_age} = "UNKNOWN";               				#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3311,7 +3312,7 @@ sub get_linux_status {
       # check state of linux daemons
       #
       $linux_hosts{$key}{daemons} = "unknown";  		             			#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_daemons";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_daemons";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3328,7 +3329,7 @@ sub get_linux_status {
       # check state of Oracle databases
       #
       $linux_hosts{$key}{oracle_databases} = "unknown";  		             			#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_oracle_instances";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_oracle_instances";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3346,7 +3347,7 @@ sub get_linux_status {
       #
       $linux_hosts{$key}{days_since_patch} = 9999;  		             			#initialize hash element to avoid undef errors
       $linux_hosts{$key}{linux_version}    = "unknown";  	             			#initialize hash element to avoid undef errors
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_patch";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_patch";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3375,7 +3376,7 @@ sub get_aix_status {
       #
       # get CPU utilization
       #
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $aix_hosts{$key}{hostname} /usr/local/nagios/libexec/check_aix_cpu";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $aix_hosts{$key}{hostname} /usr/local/nagios/libexec/check_aix_cpu";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3391,7 +3392,7 @@ sub get_aix_status {
       #
       # get paging space utilization
       #
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $aix_hosts{$key}{hostname} /usr/local/nagios/libexec/check_aix_paging";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $aix_hosts{$key}{hostname} /usr/local/nagios/libexec/check_aix_paging";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3407,7 +3408,7 @@ sub get_aix_status {
       #
       # get error report status
       #
-      $cmd = "$ssh -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $aix_hosts{$key}{hostname} /usr/local/nagios/libexec/check_aix_errpt";
+      $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $aix_hosts{$key}{hostname} /usr/local/nagios/libexec/check_aix_errpt";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
