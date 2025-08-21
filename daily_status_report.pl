@@ -50,6 +50,7 @@
 # 2024-10-02	njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/overlay/ 
 # 2024-12-02	njeffrey        Add configuration flags used by get_linux_security_posture subroutine to allow for items (ie CrowdStrike) to be defined as mandatory
 # 2025-04-21	njeffrey        Add -q parameter to ssh commands to avoid displaying /etc/motd 
+# 2025-08-21	njeffrey        Add column for Power state on Lenovo xClarity 
 
 
 
@@ -2385,9 +2386,10 @@ sub get_lenovo_xclarity_status {
       #
       #
       # initialize hash elements
+      $xclarity_hosts{$key}{syshealth}{summary}{Power}           = "unknown";
       $xclarity_hosts{$key}{syshealth}{summary}{Cooling_Devices} = "unknown";
       $xclarity_hosts{$key}{syshealth}{summary}{Power_Modules}   = "unknown";
-      $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage}   = "unknown";
+      $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage}   = "unknown";   #note that local storage details not available if server is powered Off
       $xclarity_hosts{$key}{syshealth}{summary}{Processors}      = "unknown";
       $xclarity_hosts{$key}{syshealth}{summary}{Memory}          = "unknown";
       $xclarity_hosts{$key}{syshealth}{summary}{System}          = "unknown";
@@ -2431,6 +2433,11 @@ sub get_lenovo_xclarity_status {
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                    #open filehandle from command output
       while (<IN>) {                                                            #read a line from the command output
+         chomp;                                                                 #remove newline character
+         if (/Power.*(On|Off)/) {                                               #tweaked regex to avoid matching "Power Modules"
+            $xclarity_hosts{$key}{syshealth}{summary}{Power} = $1;
+            print "   Power:$xclarity_hosts{$key}{syshealth}{summary}{Power}\n" if ($verbose eq "yes");
+         }
          if ( /^Cooling Devices +([a-zA-Z]+)/ ) {                               #find health metric
             $xclarity_hosts{$key}{syshealth}{summary}{Cooling_Devices} = $1;    #save value to hash
             print "   Cooling_Devices:$xclarity_hosts{$key}{syshealth}{summary}{Cooling_Devices} \n" if ($verbose eq "yes");
@@ -4317,14 +4324,22 @@ sub generate_html_report_xclarity_hosts {
    # Create the HTML table for Lenovo xClarity Service Processor hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=12> Lenovo xClarity Service Processors  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> Model <td> Serial <td> Cooling Devices <td> Ambient Temperature <td> Power Modules <td> Local Storage <td> Processors <td> Memory <td> System Health \n";
+   print OUT "<tr bgcolor=gray><td colspan=13> Lenovo xClarity Service Processors  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Power <td> Ping <td> SSH <td> Model <td> Serial <td> Cooling Devices <td> Ambient Temperature <td> Power Modules <td> Local Storage <td> Processors <td> Memory <td> System Health \n";
    foreach $key (sort keys %xclarity_hosts) {
       #
       # print hostname field in table row
       #
       $bgcolor = "white"; 
       print OUT "<tr><td>$xclarity_hosts{$key}{hostname} \n" ;
+      #
+      # print power status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if ( $xclarity_hosts{$key}{syshealth}{summary}{Power} eq "On" );
+      $bgcolor = "red"    if ( $xclarity_hosts{$key}{syshealth}{summary}{Power} eq "Off" );
+      $bgcolor = "orange" if ( $xclarity_hosts{$key}{syshealth}{summary}{Power} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $xclarity_hosts{$key}{syshealth}{summary}{Power} \n";
       #
       # print ping status in table row
       #
@@ -4396,8 +4411,10 @@ sub generate_html_report_xclarity_hosts {
       # print status of Local Storage (internal RAID arrays) in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage} eq "Normal");
-      $bgcolor = "red"    if (  $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage} ne "Normal");
+      $bgcolor = "green"  if ( $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage} eq "Normal");
+      $bgcolor = "red"    if ( $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage} ne "Normal");
+      # NOTE: Local Storage health will not be visible if Power=Off
+      $bgcolor = "green"  if ( ($xclarity_hosts{$key}{syshealth}{summary}{Local_Storage} eq "unknown") && ($xclarity_hosts{$key}{syshealth}{summary}{Power} eq "Off"));
       print OUT "    <td bgcolor=$bgcolor> $xclarity_hosts{$key}{syshealth}{summary}{Local_Storage} \n";
       #
       # print status of Processors in table row
