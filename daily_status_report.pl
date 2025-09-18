@@ -51,6 +51,7 @@
 # 2024-12-02	njeffrey        Add configuration flags used by get_linux_security_posture subroutine to allow for items (ie CrowdStrike) to be defined as mandatory
 # 2025-04-21	njeffrey        Add -q parameter to ssh commands to avoid displaying /etc/motd 
 # 2025-08-21	njeffrey        Add column for Power state on Lenovo xClarity 
+# 2025-09-17	njeffrey        Add error check for zero-size swap space
 
 
 
@@ -1328,6 +1329,15 @@ sub get_paging_space_util_linux {
          #
          if ( /INTEGER: ([0-9]+)/ ) {    							#find the value
             $linux_hosts{$key}{paging}{hrStorageSize} = $1;					#value for hrStorageTable.hrStorageSize.IndexNumber
+            #
+            # If swap is disabled, hrStorageSize will be zero, which will cause a divide-by-zero error later.
+            # If hrStorageSize is zero, just add 1 byte to avoid divide-by-zero error.
+            if ($linux_hosts{$key}{paging}{hrStorageSize} == 0)  {
+               $linux_hosts{$key}{paging}{hrStorageSize} = 1;
+               print "   detected zero-size swap space, probably due to swap being disabled.  Setting swap size to 1 byte to avoid divide by zero error. \n" if ($verbose eq "yes");
+            }     
+            #
+            # convert bytes to GB
             $linux_hosts{$key}{paging}{hrStorageSize_GB} = sprintf("%.1f", $linux_hosts{$key}{paging}{hrStorageAllocationUnits}*$linux_hosts{$key}{paging}{hrStorageSize}/1024/1024/1024); #convert to GB
             print "      host:$linux_hosts{$key}{hostname}  hrStorageSize:$linux_hosts{$key}{paging}{hrStorageSize_GB}GB \n" if ($verbose eq "yes");
          }
@@ -1477,6 +1487,15 @@ sub get_paging_space_util_windows {
          #
          if ( /INTEGER: ([0-9]+)/ ) {    							#find the value
             $windows_hosts{$key}{paging}{hrStorageSize} = $1;					#value for hrStorageTable.hrStorageSize.IndexNumber
+            #
+            # If swap is disabled, hrStorageSize will be zero, which will cause a divide-by-zero error later.
+            # If hrStorageSize is zero, just add 1 byte to avoid divide-by-zero error.
+            if ($windows_hosts{$key}{paging}{hrStorageSize} == 0)  {
+               $windows_hosts{$key}{paging}{hrStorageSize} = 1;
+               print "   detected zero-size swap space, probably due to swap being disabled.  Setting swap size to 1 byte to avoid divide by zero error. \n" if ($verbose eq "yes");
+            }     
+            #
+            # convert bytes to GB
             $windows_hosts{$key}{paging}{hrStorageSize_GB} = sprintf("%.1f", $windows_hosts{$key}{paging}{hrStorageAllocationUnits}*$windows_hosts{$key}{paging}{hrStorageSize}/1024/1024/1024); #convert to GB
             print "      host:$windows_hosts{$key}{hostname}  hrStorageSize:$windows_hosts{$key}{paging}{hrStorageSize_GB}GB \n" if ($verbose eq "yes");
          }
