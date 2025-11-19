@@ -86,6 +86,11 @@
 # It is assumed that all hosts will respond to ping, and health metrics can be retrieved either by SNMP or SSH
 # 
 
+# TROUBLESHOOTING
+# ---------------
+# On Ubuntu 24, SNMP MIBS are disabled by default, so the snmpget output will only show the numberic OID instead of HOST-RESOURCES-MIB::hrStorageIndex
+# This will break the subroutines that look for HOST-RESOURCES-MIB::hrStorageIndex in the snmpget output.
+# If you are running this script on an Ubuntu machine, comment out the mibs: line in /etc/snmp/snmp.conf to enable the usage of HOST-RESOURCES-MIB in the snmpget output.
 
 
 use strict; 				#enforce good coding practices
