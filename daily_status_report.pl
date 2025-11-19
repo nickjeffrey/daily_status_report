@@ -755,7 +755,7 @@ sub verify_os_linux {
       #    SNMPv2-MIB::sysDescr.0 = STRING: Linux linserv011.example.com 3.10.0-1160.62.1.el7.x86_64 #1 SMP Tue Apr 5 16:57:59 UTC 2022 x86_64
       #
       #    $ /usr/bin/snmpwalk  -v 1 -c public winserv01 .1.3.6.1.2.1.1.1.0
-      #    SNMPv2-MIB::sysDescr.0 = STRING: Hardware: Intel64 Family 6 Model 86 Stepping 2 AT/AT COMPATIBLE - Software: Windows Version 6.3 (Build 17763 Multiprocessor Free)
+      #    SNMPv2-MIB::sysDescr.0 = STRING: "Hardware: Intel64 Family 6 Model 86 Stepping 2 AT/AT COMPATIBLE - Software: Windows Version 6.3 (Build 17763 Multiprocessor Free)"
       #
       #
       #
@@ -767,6 +767,7 @@ sub verify_os_linux {
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                 			          	#open filehandle using command output
       while (<IN>) {                                                   	 			#read a line from the command output
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( /Linux/ ) {									#look for operating system type in sysDescr
             $linux_hosts{$key}{os}   = "Linux";  						#define operating system
             $linux_hosts{$key}{snmp} = "ok";   							#this also confirms we have working SNMP
@@ -803,7 +804,7 @@ sub verify_os_windows {
       #    SNMPv2-MIB::sysDescr.0 = STRING: Linux linserv011.example.com 3.10.0-1160.62.1.el7.x86_64 #1 SMP Tue Apr 5 16:57:59 UTC 2022 x86_64
       #
       #    $ /usr/bin/snmpwalk  -v 1 -c public winserv01 .1.3.6.1.2.1.1.1.0
-      #    SNMPv2-MIB::sysDescr.0 = STRING: Hardware: Intel64 Family 6 Model 86 Stepping 2 AT/AT COMPATIBLE - Software: Windows Version 6.3 (Build 17763 Multiprocessor Free)
+      #    SNMPv2-MIB::sysDescr.0 = STRING: "Hardware: Intel64 Family 6 Model 86 Stepping 2 AT/AT COMPATIBLE - Software: Windows Version 6.3 (Build 17763 Multiprocessor Free)"
       #
       #
       #
@@ -815,6 +816,7 @@ sub verify_os_windows {
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                 			          	#open filehandle using command output
       while (<IN>) {                                                   	 			#read a line from the command output
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( /Linux/ ) {									#look for operating system type in sysDescr
             $windows_hosts{$key}{os}   = "Linux";  						#define operating system
             $windows_hosts{$key}{snmp} = "ok";  						#this also confirms we have working SNMP
@@ -1614,6 +1616,7 @@ sub get_windows_drive_util {
          # HOST-RESOURCES-MIB::hrStorageDescr.3 = STRING: Virtual Memory
          # HOST-RESOURCES-MIB::hrStorageDescr.4 = STRING: Physical Memory
          #
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( /hrStorageDescr.([0-9]+) = STRING: C:/ ) {  					#find the appropriate windows drive letter
             $windows_hosts{$key}{windows_drive}{c}{hrStorageIndex} = $1;	               	#now we know the appropriate index to use for the AllocationUnits/Size/Used OIDs
             $windows_hosts{$key}{windows_drive}{c}{drive_letter}   = "C";	               	#save drive letter as a hash element instead of a hash key so we can refer to it later
@@ -1902,6 +1905,7 @@ sub get_linux_fs_util {
       open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
       while (<IN>) {                                                   	 				#read a line from the command output
          #
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( /hrStorageIndex.([0-9]+) = INTEGER: ([0-9]+)/ ) {  					#find the appropriate hrStorageIndex value for indexing all the storage devices
             $linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} = $2;                   			#use the hrStorageIndex as the hash key
             print "      host:$linux_hosts{$key}{hostname} hrStorageIndex:$linux_hosts{$key}{linux_fs}{$1}{hrStorageIndex} \n" if ($verbose eq "yes");
@@ -2155,6 +2159,7 @@ sub get_dell_idrac9_status {
       print "   running command to get iDRAC GlobalSystemStatus: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
       while (<IN>) {                                                   	 	#read a line from the command output
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( / = INTEGER: ([0-9]+)/ ) {
             $idrac9_hosts{$key}{GlobalSystemStatus} = $1;			#value for GlobalSystemStatus
             $idrac9_hosts{$key}{GlobalSystemStatus} = "Other"          if ( $idrac9_hosts{$key}{GlobalSystemStatus} eq "1" );	#convert integer to human readable text
@@ -2177,6 +2182,7 @@ sub get_dell_idrac9_status {
       print "   running command to get iDRAC GlobalStorageStatus: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
       while (<IN>) {                                                   	 	#read a line from the command output
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( / = INTEGER: ([0-9]+)/ ) {
             $idrac9_hosts{$key}{GlobalStorageStatus} = $1;			#value for GlobalSystemStatus
             $idrac9_hosts{$key}{GlobalStorageStatus} = "Other"          if ( $idrac9_hosts{$key}{GlobalStorageStatus} eq "1" );	#convert integer to human readable text
@@ -2198,7 +2204,7 @@ sub get_dell_idrac9_status {
       print "   running command to get iDRAC server Model: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
       while (<IN>) {                                                   	 	#read a line from the command output
-         s/"//g;								#get rid of " character 
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( / = STRING: ([a-zA-Z0-9 ]+)/ ) {
             $idrac9_hosts{$key}{Model} = $1;					#value for server Model number
          }                                                             		#end of if block
@@ -2214,7 +2220,7 @@ sub get_dell_idrac9_status {
       print "   running command to get iDRAC ServiceTag: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
       while (<IN>) {                                                   	 	#read a line from the command output
-         s/"//g;								#get rid of " character 
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( / = STRING: ([a-zA-Z0-9]+)/ ) {
             $idrac9_hosts{$key}{ServiceTag} = $1;				#value for ServiceTag
          }                                                             		#end of if block
@@ -2317,7 +2323,7 @@ sub get_emc_unisphere_status {
       print "   running command to get UniSphere ServiceTag: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           				#open filehandle using command output
       while (<IN>) {                                                   			 		#read a line from the command output
-         s/"//g;											#get rid of " character 
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( / = STRING: ([a-zA-Z0-9]+)/ ) {
             $unisphere_hosts{$key}{ServiceTag} = $1;							#value for ServiceTag
          }                                                             					#end of if block
@@ -2574,7 +2580,7 @@ sub get_brocade_status {
       print "   running command to get Brocade switch model type: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
       while (<IN>) {                                                   	 	#read a line from the command output
-         s/"//g;								#get rid of " character to simplify regex
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( /STRING: ([0-9a-zA-Z_\.]+)/ ) {  					#look for a response to the snmp query
             $brocade_hosts{$key}{switch_type} = $1;				#value for switch type / model number
             $brocade_hosts{$key}{snmp}        = "ok";				#finding a value here means we have working SNMP
@@ -2785,7 +2791,7 @@ sub get_netapp_status {
       print "   running command to get sysName: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
       while (<IN>) {                                                                            #read a line from the command output
-         s/"//g; 										#get rid of " character to make regex simpler
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          if ( / = STRING: NetApp Release ([a-zA-Z0-9 \.]+):/ ) { 				#Capture the ONTAP version
             $netapp_hosts{$key}{ontap_version} = $1;                                         	#value for currently running ONTAP version
             $netapp_hosts{$key}{snmp}          = "ok";                                         	#finding a value here means we have working SNMP
@@ -3178,7 +3184,7 @@ sub get_hpilo4_status {
       print "   running command to check status of of HPE SmartArray RAID controller: $cmd \n" if ($verbose eq "yes");
       open (IN,"$cmd |");						#open filehandle
       while (<IN>) {						#read a line from the filehandle
-         s/\"//g;							#get rid of any quotation marks in the output
+         s/"//g;							#get rid of any quotation marks in the output to make the regex simpler
          s/=//g;							#get rid of any equal sign in the output
          if ( /[0-9\.]+ +([0-9]+)/) {				#parse out the line of output into OID and value
             $hpilo4_hosts{$key}{raid_controller}{count}++;   			#increment counter for number of installed RAID controllers
