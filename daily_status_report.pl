@@ -2079,7 +2079,7 @@ sub get_linux_security_posture {
          $linux_hosts{$key}{sentinelone}      = $1 if (/sentinelone:([a-zA-Z0-9]+)/        );
          $linux_hosts{$key}{clamav}           = $1 if (/clamav:([a-zA-Z0-9]+)/             );
          $linux_hosts{$key}{msdefender}       = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
-         $linux_hosts{$key}{manageengine}     = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
+         $linux_hosts{$key}{manageengine}     = $1 if (/manageengine:([a-zA-Z0-9]+)/       );
       }                                                                                         #end of while loop
       print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
@@ -3836,7 +3836,7 @@ sub generate_html_report_linux_security_posture {
    # Create the HTML table for Linux hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=15> Security posture on Linux hosts \n";
+   print OUT "<tr bgcolor=gray><td colspan=16> Security posture on Linux hosts \n";
    print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
    foreach $key (sort keys %linux_hosts) {
       #
