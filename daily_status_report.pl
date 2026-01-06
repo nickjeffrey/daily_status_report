@@ -134,7 +134,8 @@ $linux_arcticwolf      = "";                							#initialize to avoid undef er
 $linux_crowdstrike     = "";                							#initialize to avoid undef errors
 $linux_sentinelone     = "";                							#initialize to avoid undef errors
 $linux_clamav          = "";                							#initialize to avoid undef errors
-$linux_msdefender      = "";									#initialize to avoid undef errors
+$linux_msdefender      = "";									         #initialize to avoid undef errors
+$linux_manageengine    = "";									         #initialize to avoid undef errors
 
 
 
