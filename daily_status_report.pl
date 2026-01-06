@@ -261,6 +261,7 @@ sub read_config_file {
       $linux_sentinelone       = "mandatory" if (/^linux_sentinelone=mandatory/);               #find line in config file
       $linux_clamav            = "mandatory" if (/^linux_clamav=mandatory/);               	#find line in config file
       $linux_msdefender        = "mandatory" if (/^linux_msdefender=mandatory/); 		#find line in config file
+      $linux_manageengine      = "mandatory" if (/^linux_manageengine=mandatory/); 		#find line in config file
 
    }                                                                                         	#end of while loop
    close IN;                                                                                 	#close filehandle
@@ -2059,6 +2060,7 @@ sub get_linux_security_posture {
       $linux_hosts{$key}{sentinelone}      = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{clamav}           = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{msdefender}       = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{manageengine}     = "unknown";                                         #initialize hash element to avoid undef errors
       $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_security_posture";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
@@ -2076,8 +2078,9 @@ sub get_linux_security_posture {
          $linux_hosts{$key}{sentinelone}      = $1 if (/sentinelone:([a-zA-Z0-9]+)/        );
          $linux_hosts{$key}{clamav}           = $1 if (/clamav:([a-zA-Z0-9]+)/             );
          $linux_hosts{$key}{msdefender}       = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
+         $linux_hosts{$key}{manageengine}     = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
       }                                                                                         #end of while loop
-      print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} \n" if ($verbose eq "yes");
+      print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
@@ -3833,7 +3836,7 @@ sub generate_html_report_linux_security_posture {
    #
    print OUT "<table border=1> \n";
    print OUT "<tr bgcolor=gray><td colspan=15> Security posture on Linux hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3946,6 +3949,13 @@ sub generate_html_report_linux_security_posture {
       $bgcolor = "red"    if ( $linux_msdefender eq "mandatory" );			#raise a red alert if msdefender is mandatory but not running
       $bgcolor = "green"  if ( $linux_hosts{$key}{msdefender} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{msdefender} \n";
+      #
+      #  ManageEngine Unified Endpoint Management (UEMS) Agent (also known as Desktop Central Agent) status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if ( $linux_manageengine eq "mandatory" );			#raise a red alert if manageengine is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{manageengine} eq "active" );
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{manageengine} \n";
    } 											#end of foreach loop
    # print HTML table footer 
    print OUT "</table><p>\&nbsp\;</p> \n";
