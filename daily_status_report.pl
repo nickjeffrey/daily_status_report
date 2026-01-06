@@ -110,7 +110,7 @@ my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
 my ($count,$drive_letter,@drive_letters);
 my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
-my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender);
+my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
 
 $verbose               = "yes";									#yes/no flag to increase verbosity for debugging
 $ping                  = "/bin/ping";								#location of binary
