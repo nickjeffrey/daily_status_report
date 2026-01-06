@@ -53,6 +53,7 @@
 # 2025-08-21	njeffrey        Add column for Power state on Lenovo xClarity 
 # 2025-09-17	njeffrey        Add error check for zero-size swap space
 # 2025-11-19	njeffrey        snmpget on ubuntu adds quotes around strings but snmpget on rhel does not, tweak regex to remove quotation marks with s/"//g; 
+# 2026-01-06	njeffrey        Add section for ManageEngine agent to Linux security posture details
 
 
 
