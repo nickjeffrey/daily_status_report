@@ -2049,38 +2049,40 @@ sub get_linux_security_posture {
       #
       # get assorted details about security posture on remote Linux machine
       #
-      $linux_hosts{$key}{linux_version}    = "unknown";                        			#initialize hash element to avoid undef errors
-      $linux_hosts{$key}{days_since_patch} = 0;                                         	#initialize hash element to avoid undef errors
-      $linux_hosts{$key}{selinux}          = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{firewall}         = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{fail2ban}         = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{auditd}           = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{fapolicyd}        = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{aide}             = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{arcticwolf}       = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{crowdstrike}      = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{sentinelone}      = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{clamav}           = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{msdefender}       = "unknown";                                         #initialize hash element to avoid undef errors
-      $linux_hosts{$key}{manageengine}     = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{linux_version}            = "unknown";                        			#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{days_since_patch}         = 0;                                          	#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{pending_security_updates} = "unknown";                                         	#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{selinux}                  = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{firewall}                 = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{fail2ban}                 = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{auditd}                   = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{fapolicyd}                = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{aide}                     = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{arcticwolf}               = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{crowdstrike}              = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{sentinelone}              = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{clamav}                   = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{msdefender}               = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{manageengine}             = "unknown";                                         #initialize hash element to avoid undef errors
       $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_linux_security_posture";
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the filehandle
-         $linux_hosts{$key}{linux_version}    = $1 if (/linux_version:([a-zA-Z0-9_\-\.]+)/ );
-         $linux_hosts{$key}{days_since_patch} = $1 if (/days_since_patch:([0-9]+)/         );
-         $linux_hosts{$key}{selinux}          = $1 if (/selinux:([a-zA-Z0-9]+)/            );
-         $linux_hosts{$key}{firewall}         = $1 if (/firewall:([a-zA-Z0-9]+)/           );
-         $linux_hosts{$key}{fail2ban}         = $1 if (/fail2ban:([a-zA-Z0-9]+)/           );
-         $linux_hosts{$key}{auditd}           = $1 if (/auditd:([a-zA-Z0-9]+)/             );
-         $linux_hosts{$key}{fapolicyd}        = $1 if (/fapolicyd:([a-zA-Z0-9]+)/          );
-         $linux_hosts{$key}{aide}             = $1 if (/aide:([a-zA-Z0-9]+)/               );
-         $linux_hosts{$key}{arcticwolf}       = $1 if (/arcticwolf:([a-zA-Z0-9]+)/         );
-         $linux_hosts{$key}{crowdstrike}      = $1 if (/crowdstrike:([a-zA-Z0-9]+)/        );
-         $linux_hosts{$key}{sentinelone}      = $1 if (/sentinelone:([a-zA-Z0-9]+)/        );
-         $linux_hosts{$key}{clamav}           = $1 if (/clamav:([a-zA-Z0-9]+)/             );
-         $linux_hosts{$key}{msdefender}       = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
-         $linux_hosts{$key}{manageengine}     = $1 if (/manageengine:([a-zA-Z0-9]+)/       );
+         $linux_hosts{$key}{linux_version}            = $1 if (/linux_version:([a-zA-Z0-9_\-\.]+)/ );
+         $linux_hosts{$key}{days_since_patch}         = $1 if (/days_since_patch:([0-9]+)/         );
+         $linux_hosts{$key}{pending_security_updates} = $1 if (/pending_security_updates:([0-9]+)/ );
+         $linux_hosts{$key}{selinux}                  = $1 if (/selinux:([a-zA-Z0-9]+)/            );
+         $linux_hosts{$key}{firewall}                 = $1 if (/firewall:([a-zA-Z0-9]+)/           );
+         $linux_hosts{$key}{fail2ban}                 = $1 if (/fail2ban:([a-zA-Z0-9]+)/           );
+         $linux_hosts{$key}{auditd}                   = $1 if (/auditd:([a-zA-Z0-9]+)/             );
+         $linux_hosts{$key}{fapolicyd}                = $1 if (/fapolicyd:([a-zA-Z0-9]+)/          );
+         $linux_hosts{$key}{aide}                     = $1 if (/aide:([a-zA-Z0-9]+)/               );
+         $linux_hosts{$key}{arcticwolf}               = $1 if (/arcticwolf:([a-zA-Z0-9]+)/         );
+         $linux_hosts{$key}{crowdstrike}              = $1 if (/crowdstrike:([a-zA-Z0-9]+)/        );
+         $linux_hosts{$key}{sentinelone}              = $1 if (/sentinelone:([a-zA-Z0-9]+)/        );
+         $linux_hosts{$key}{clamav}                   = $1 if (/clamav:([a-zA-Z0-9]+)/             );
+         $linux_hosts{$key}{msdefender}               = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
+         $linux_hosts{$key}{manageengine}             = $1 if (/manageengine:([a-zA-Z0-9]+)/       );
       }                                                                                         #end of while loop
       print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
@@ -3837,8 +3839,8 @@ sub generate_html_report_linux_security_posture {
    # Create the HTML table for Linux hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=16> Security posture on Linux hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
+   print OUT "<tr bgcolor=gray><td colspan=17> Security posture on Linux hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3871,6 +3873,14 @@ sub generate_html_report_linux_security_posture {
       #
       $bgcolor = "white";								#initialize variable
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{days_since_patch} \n";
+      #
+      # print number of pending security updates in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $linux_hosts{$key}{pending_security_patches} <= 10);
+      $bgcolor = "orange" if ( ($linux_hosts{$key}{pending_security_patches} > 10) && ($linux_hosts{$key}{pending_security_patches} <= 100) );
+      $bgcolor = "red"    if (  $linux_hosts{$key}{pending_security_patches} > 100);
+      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{pending_security_patches} \n";
       #
       # selinux status in table row
       #
