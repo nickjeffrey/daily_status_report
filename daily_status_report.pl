@@ -3609,7 +3609,7 @@ sub generate_html_report_linux_hosts {
    #
    print OUT "<table border=1> \n";
    print OUT "<tr bgcolor=gray><td colspan=15> Linux Hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> NTP <td> root pw age <td>other pw <td> daemons <td>Oracle DB <td> SNMP <td> CPU util <td> RAM util<td> Paging Space util <td> OS version <td>Days since patch <td> Disk util \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SSH <td> NTP <td> root pw age <td>other pw <td> daemons <td>Oracle DB <td> SNMP <td> CPU util <td> RAM util<td> Paging Space util <td> Disk util \n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3716,20 +3716,6 @@ sub generate_html_report_linux_hosts {
       $bgcolor = "orange" if ( ($linux_hosts{$key}{paging}{hrStorageUsed_pct} > 50) && ($linux_hosts{$key}{paging}{hrStorageUsed_pct} <= 75) );
       $bgcolor = "red"    if (  $linux_hosts{$key}{paging}{hrStorageUsed_pct} > 75);
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{paging}{hrStorageUsed_pct}\% \n";
-      #
-      # print Linux version (ie RHEL8.7) in table row
-      #
-      $bgcolor = "green";								#initialize variable
-      $bgcolor = "orange" if ( $linux_hosts{$key}{linux_version} eq "unknown" );
-      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{linux_version} \n";
-      #
-      # print number of days since last OS patching in table row
-      #
-      $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{days_since_patch} <= 180);
-      $bgcolor = "orange" if ( ($linux_hosts{$key}{days_since_patch} > 180) && ($linux_hosts{$key}{days_since_patch} <= 365) );
-      $bgcolor = "red"    if (  $linux_hosts{$key}{days_since_patch} > 365);
-      print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{days_since_patch} \n";
       #
       # print Linux filesystem space utilization in table row
       #
@@ -3921,11 +3907,8 @@ sub generate_html_report_linux_security_posture {
       # AIDE status in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "white"  if ( $linux_hosts{$key}{aide} eq "no");			#no color if AIDE is not installed
-      $bgcolor = "green"  if ( $linux_hosts{$key}{aide} =~ /[0-9]/); 			#green if last database update was single digit number of days
-      $bgcolor = "green"  if ( $linux_hosts{$key}{aide} =~ /[0-9][0-9]/); 		#green if last database update was double digit number of days
-      $bgcolor = "red"    if ( $linux_hosts{$key}{aide} =~ /[0-9][0-9][0-9]/); 	#red   if last database update was triple digit number of days
-      $bgcolor = "red"    if ( $linux_aide eq "mandatory" );				#raise a red alert if aide is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{aide} eq "active"); 			 
+      $bgcolor = "red"    if ( ($linux_hosts{$key}{aide} eq "no") && ($linux_aide eq "mandatory") ); 	#raise a red alert if aide is mandatory but not running
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{aide} \n";
       #
       # Arctic Wolf status in table row
