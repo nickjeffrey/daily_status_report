@@ -3314,7 +3314,7 @@ sub get_linux_status {
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
          s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
-         if ( /user:root age:([0-9]+) minage:[0-9]+ maxage:([0-9]+) days_left:([0-9\-]+)/ ) {   #parse the output of the nagios check for the root user
+         if ( /user:root age:([0-9]+) minage:[0-9]+ maxage:([0-9]+) password_days_left:([0-9\-]+)/ ) {   #parse the output of the nagios check for the root user
             $linux_hosts{$key}{root_password_age_days}      = $1;                               #parse out the password age in days
             $linux_hosts{$key}{root_password_maxage_days}   = $2;                               #parse out the password age in days
             $linux_hosts{$key}{root_password_age_days_left} = $3;                               #parse out the password age in days remaining before expiry
