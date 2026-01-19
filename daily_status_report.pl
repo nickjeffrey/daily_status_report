@@ -111,7 +111,7 @@ my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
 my ($count,$drive_letter,@drive_letters);
 my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
-my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
+my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_sssd,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
 
 $verbose               = "yes";									#yes/no flag to increase verbosity for debugging
 $ping                  = "/bin/ping";								#location of binary
@@ -128,6 +128,7 @@ $monitoring_system_url = "";									#initialize to avoid undef errors
 $linux_selinux         = "";                							#initialize to avoid undef errors
 $linux_firewall        = "";                							#initialize to avoid undef errors
 $linux_fail2ban        = "";                							#initialize to avoid undef errors
+$linux_sssd            = "";                							#initialize to avoid undef errors
 $linux_auditd          = "";                							#initialize to avoid undef errors
 $linux_fapolicyd       = "";                							#initialize to avoid undef errors
 $linux_aide            = "";                							#initialize to avoid undef errors
@@ -239,21 +240,21 @@ sub read_config_file {
       #
       # SNMP community strings
       #
-      $community               = $1 if (/^community=(\S+)/);					#find line in config file \S refers to any non-whitespace character
-      $community_linux         = $1 if (/^community_linux=(\S+)/);				#find line in config file
-      $community_windows       = $1 if (/^community_windows=(\S+)/);				#find line in config file
-      $community_netapp        = $1 if (/^community_netapp=(\S+)/);				#find line in config file
+      $community               = $1 if (/^community=(\S+)/);					      #find line in config file \S refers to any non-whitespace character
+      $community_linux         = $1 if (/^community_linux=(\S+)/);				   #find line in config file
+      $community_windows       = $1 if (/^community_windows=(\S+)/);				   #find line in config file
+      $community_netapp        = $1 if (/^community_netapp=(\S+)/);				   #find line in config file
       $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);				#find line in config file
       $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);				#find line in config file
       $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);			#find line in config file
-      $community_idrac9        = $1 if (/^community_idrac9=(\S+)/);				#find line in config file
-      $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				#find line in config file
-      $community_brocade       = $1 if (/^community_brocade=(\S+)/);				#find line in config file
+      $community_idrac9        = $1 if (/^community_idrac9=(\S+)/);				   #find line in config file
+      $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				   #find line in config file
+      $community_brocade       = $1 if (/^community_brocade=(\S+)/);				   #find line in config file
       $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);				#find line in config file
       #
       # Linux security posture settings
       #
-      $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      		#find line in config file
+      $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      	 	   #find line in config file
       $linux_firewall          = "mandatory" if (/^linux_firewall=mandatory/);       		#find line in config file
       $linux_fail2ban          = "mandatory" if (/^linux_fail2ban=mandatory/);       		#find line in config file
       $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);                	#find line in config file
@@ -2056,6 +2057,7 @@ sub get_linux_security_posture {
       $linux_hosts{$key}{selinux}                  = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{firewall}                 = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{fail2ban}                 = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{sssd}                     = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{auditd}                   = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{fapolicyd}                = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{aide}                     = "unknown";                                         #initialize hash element to avoid undef errors
@@ -2075,6 +2077,7 @@ sub get_linux_security_posture {
          $linux_hosts{$key}{selinux}                  = $1 if (/selinux:([a-zA-Z0-9]+)/            );
          $linux_hosts{$key}{firewall}                 = $1 if (/firewall:([a-zA-Z0-9]+)/           );
          $linux_hosts{$key}{fail2ban}                 = $1 if (/fail2ban:([a-zA-Z0-9]+)/           );
+         $linux_hosts{$key}{sssd}                     = $1 if (/sssd:([a-zA-Z0-9]+)/               );
          $linux_hosts{$key}{auditd}                   = $1 if (/auditd:([a-zA-Z0-9]+)/             );
          $linux_hosts{$key}{fapolicyd}                = $1 if (/fapolicyd:([a-zA-Z0-9]+)/          );
          $linux_hosts{$key}{aide}                     = $1 if (/aide:([a-zA-Z0-9]+)/               );
@@ -2085,7 +2088,7 @@ sub get_linux_security_posture {
          $linux_hosts{$key}{msdefender}               = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
          $linux_hosts{$key}{manageengine}             = $1 if (/manageengine:([a-zA-Z0-9]+)/       );
       }                                                                                         #end of while loop
-      print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
+      print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} sssd:$linux_hosts{$key}{sssd} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
@@ -3826,8 +3829,8 @@ sub generate_html_report_linux_security_posture {
    # Create the HTML table for Linux hosts
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=17> Security posture on Linux hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux <td> firewall <td> fail2ban <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
+   print OUT "<tr bgcolor=gray><td colspan=18> Security posture on Linux hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux <td> firewall <td> fail2ban <td> sssd <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3889,6 +3892,13 @@ sub generate_html_report_linux_security_posture {
       $bgcolor = "red"    if ( $linux_fail2ban eq "mandatory" );			#raise a red alert if fail2ban is mandatory but not running
       $bgcolor = "green"  if ( $linux_hosts{$key}{fail2ban} eq "active");
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{fail2ban} \n";
+      #
+      # sssd status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if ( $linux_sssd eq "mandatory" );				#raise a red alert if sssd is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{sssd} eq "active" );
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{sssd} \n";
       #
       # auditd status in table row
       #
