@@ -3830,7 +3830,7 @@ sub generate_html_report_linux_security_posture {
    #
    print OUT "<table border=1> \n";
    print OUT "<tr bgcolor=gray><td colspan=18> Security posture on Linux hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux <td> firewall <td> fail2ban <td> sssd <td> auditd <td> fapolicyd <td> AIDE <td> Arctic Wolf <td> Crowdstrike <td> Sentinel One <td> ClamAV <td> MS Defender <td> Manage Engine\n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux <td> firewall <td> fail2ban <td> sssd <td> auditd <td> fapolicyd <td> AIDE <td> Crowdstrike <td> Manage Engine <td> Arctic Wolf <td> Sentinel One <td> ClamAV <td> MS Defender \n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3917,16 +3917,10 @@ sub generate_html_report_linux_security_posture {
       # AIDE status in table row
       #
       $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if ( $linux_aide eq "mandatory" ); 				#raise a red alert if aide is mandatory but not running
       $bgcolor = "green"  if ( $linux_hosts{$key}{aide} eq "active"); 			 
-      $bgcolor = "red"    if ( ($linux_hosts{$key}{aide} eq "no") && ($linux_aide eq "mandatory") ); 	#raise a red alert if aide is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{aide} eq "yes"); 			 
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{aide} \n";
-      #
-      # Arctic Wolf status in table row
-      #
-      $bgcolor = "white";								#initialize variable
-      $bgcolor = "red"    if ( $linux_arcticwolf eq "mandatory" );			#raise a red alert if arcticwolf is mandatory but not running
-      $bgcolor = "green"  if ( $linux_hosts{$key}{arcticwolf} eq "active" );
-      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{arcticwolf} \n";
       #
       # Crowdstrike Falcon Sensor status in table row
       #
@@ -3934,6 +3928,20 @@ sub generate_html_report_linux_security_posture {
       $bgcolor = "red"   if ( $linux_crowdstrike eq "mandatory" );			#raise a red alert if crowdstrike is mandatory but not running
       $bgcolor = "green" if ( $linux_hosts{$key}{crowdstrike} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{crowdstrike} \n";
+      #
+      #  ManageEngine Unified Endpoint Management (UEMS) Agent (also known as Desktop Central Agent) status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if ( $linux_manageengine eq "mandatory" );			#raise a red alert if manageengine is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{manageengine} eq "active" );
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{manageengine} \n";
+      #
+      # Arctic Wolf status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if ( $linux_arcticwolf eq "mandatory" );			#raise a red alert if arcticwolf is mandatory but not running
+      $bgcolor = "green"  if ( $linux_hosts{$key}{arcticwolf} eq "active" );
+      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{arcticwolf} \n";
       #
       # Sentinel One status in table row
       #
@@ -3955,13 +3963,6 @@ sub generate_html_report_linux_security_posture {
       $bgcolor = "red"    if ( $linux_msdefender eq "mandatory" );			#raise a red alert if msdefender is mandatory but not running
       $bgcolor = "green"  if ( $linux_hosts{$key}{msdefender} eq "active" );
       print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{msdefender} \n";
-      #
-      #  ManageEngine Unified Endpoint Management (UEMS) Agent (also known as Desktop Central Agent) status in table row
-      #
-      $bgcolor = "white";								#initialize variable
-      $bgcolor = "red"    if ( $linux_manageengine eq "mandatory" );			#raise a red alert if manageengine is mandatory but not running
-      $bgcolor = "green"  if ( $linux_hosts{$key}{manageengine} eq "active" );
-      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{manageengine} \n";
    } 											#end of foreach loop
    # print HTML table footer 
    print OUT "</table><p>\&nbsp\;</p> \n";
