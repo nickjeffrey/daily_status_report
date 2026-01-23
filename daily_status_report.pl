@@ -3733,6 +3733,7 @@ sub generate_html_report_linux_hosts {
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run$/ );			#skip the pseudo-filesystems named /run (no trailing slash)
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/containers/ );	#skip any filesystems used by docker or podman containers
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/docker\/overlay/ );	#skip any filesystems used by docker or podman containers
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/kubelet\//) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
          $fontcolor = "black";										#initialize variable
          $fontcolor = "green"  if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 80 );
          $fontcolor = "orange" if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}  > 80 ) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );
