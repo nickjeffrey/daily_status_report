@@ -3867,9 +3867,9 @@ sub generate_html_report_linux_security_posture {
       # print number of pending security updates in table row
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{pending_security_updates} <= 10);
-      $bgcolor = "orange" if ( ($linux_hosts{$key}{pending_security_updates} > 10) && ($linux_hosts{$key}{pending_security_updates} <= 100) );
-      $bgcolor = "red"    if (  $linux_hosts{$key}{pending_security_updates} > 100);
+      #$bgcolor = "green"  if (  $linux_hosts{$key}{pending_security_updates} <= 10);
+      #$bgcolor = "orange" if ( ($linux_hosts{$key}{pending_security_updates} > 10) && ($linux_hosts{$key}{pending_security_updates} <= 100) );
+      #$bgcolor = "red"    if (  $linux_hosts{$key}{pending_security_updates} > 100);
       print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{pending_security_updates} \n";
       #
       # selinux status in table row
