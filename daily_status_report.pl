@@ -55,6 +55,7 @@
 # 2025-11-19	njeffrey        snmpget on ubuntu adds quotes around strings but snmpget on rhel does not, tweak regex to remove quotation marks with s/"//g; 
 # 2026-01-06	njeffrey        Add section for ManageEngine agent to "Linux Security Posture" table
 # 2026-01-08	njeffrey        Add column for pending security updates to "Linux Security Posture" table
+# 2026-03-10	njeffrey        Add section for APC UPS 
 
 
 
@@ -78,6 +79,7 @@
 #  - IBM Hardware Management Consoles       (reads text fiel created by nagios running on same host)
 #  - MikroTik SwOS hosts                    (via SNMP-based nagios checks)
 #  - NetApp ONTAP  hosts                    (via SNMP)
+#  - APC UPS hosts                          (via SNMP-based nagios checks)
 #
 
 # ASSUMPTIONS
@@ -104,12 +106,13 @@ my (@linux_hostnames,%linux_hosts,@windows_hostnames,%windows_hosts,@aix_hostnam
 my (@idrac8_hostnames,%idrac8_hosts,@idrac9_hostnames,%idrac9_hosts,@ibm_imm2_hostnames,%ibm_imm2_hosts,@xclarity_hostnames,%xclarity_hosts,@hpilo4_hostnames,%hpilo4_hosts);               #service processors
 my (@brocade_hostnames,%brocade_hosts,@unisphere_hostnames,%unisphere_hosts,@flashsystem_hostnames,%flashsystem_hosts,@netapp_hostnames,%netapp_hosts,@qnap_hostnames,%qnap_hosts); #SAN storage
 my (@ciscoios_hostnames,%ciscoios_hosts,@fortigate_hostnames,%fortigate_hosts,@mikrotik_swos_hostnames,%mikrotik_swos_hosts);                           #networking 
+my (@apcups_hostnames,%apcups_hosts);                           #UPS 
 my (@san_multipath_linux_hostnames,%san_multipath_linux_hosts);
 my ($key,$key2,$config_file,$output_file,$bgcolor,$fontcolor);
 my ($to,$from,$subject,$sendmail);
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst); 
 my ($count,$drive_letter,@drive_letters);
-my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate);
+my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate,$community_apcups);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
 my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_sssd,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
 
@@ -136,8 +139,8 @@ $linux_arcticwolf      = "";                							#initialize to avoid undef er
 $linux_crowdstrike     = "";                							#initialize to avoid undef errors
 $linux_sentinelone     = "";                							#initialize to avoid undef errors
 $linux_clamav          = "";                							#initialize to avoid undef errors
-$linux_msdefender      = "";									         #initialize to avoid undef errors
-$linux_manageengine    = "";									         #initialize to avoid undef errors
+$linux_msdefender      = "";									#initialize to avoid undef errors
+$linux_manageengine    = "";									#initialize to avoid undef errors
 
 
 
@@ -237,20 +240,23 @@ sub read_config_file {
       @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
       @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @mikrotik_swos_hostnames       = split(',' , $1) if (/^mikrotik_swos_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @apcups_hostnames              = split(',' , $1) if (/^apcups_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       #
       # SNMP community strings
       #
-      $community               = $1 if (/^community=(\S+)/);					      #find line in config file \S refers to any non-whitespace character
-      $community_linux         = $1 if (/^community_linux=(\S+)/);				   #find line in config file
-      $community_windows       = $1 if (/^community_windows=(\S+)/);				   #find line in config file
-      $community_netapp        = $1 if (/^community_netapp=(\S+)/);				   #find line in config file
+      $community               = $1 if (/^community=(\S+)/);					#find line in config file \S refers to any non-whitespace character
+      $community_linux         = $1 if (/^community_linux=(\S+)/);				#find line in config file
+      $community_windows       = $1 if (/^community_windows=(\S+)/);				#find line in config file
+      $community_netapp        = $1 if (/^community_netapp=(\S+)/);				#find line in config file
       $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);				#find line in config file
       $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);				#find line in config file
       $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);			#find line in config file
-      $community_idrac9        = $1 if (/^community_idrac9=(\S+)/);				   #find line in config file
-      $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				   #find line in config file
-      $community_brocade       = $1 if (/^community_brocade=(\S+)/);				   #find line in config file
+      $community_idrac9        = $1 if (/^community_idrac9=(\S+)/);				#find line in config file
+      $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				#find line in config file
+      $community_brocade       = $1 if (/^community_brocade=(\S+)/);				#find line in config file
       $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);				#find line in config file
+      $community_apcups        = $1 if (/^community_apcups=(\S+)/);				#find line in config file
       #
       # Linux security posture settings
       #
@@ -481,6 +487,15 @@ sub define_hosts {
       $ciscoios_hosts{$host}{ping}           = "unknown";                                       #initialize hash element
       $ciscoios_hosts{$host}{health}         = "unknown";                                       #initialize hash element
       print "      found ciscoios hostname $ciscoios_hosts{$host}{hostname} \n" if ($verbose eq "yes");
+   }                                                                                            #end of foreach loop
+   #
+   # build a hash for all APC UPS devices
+   #
+   foreach $host (@apcups_hostnames) {
+      $apcups_hosts{$host}{hostname}       = $host;                                           #initialize hash element
+      $apcups_hosts{$host}{ping}           = "unknown";                                       #initialize hash element
+      $apcups_hosts{$host}{health}         = "unknown";                                       #initialize hash element
+      print "      found apcups hostname $apcups_hosts{$host}{hostname} \n" if ($verbose eq "yes");
    }                                                                                            #end of foreach loop
 } 												#end of subroutine
 
@@ -739,6 +754,20 @@ sub ping_hosts {
          $ciscoios_hosts{$key}{ping} = "down" if ( /100\% packet loss/ );                       #look for ping reply
       }                                                                                         #end of while loop
       print "      $ciscoios_hosts{$key}{hostname} ping status is $ciscoios_hosts{$key}{ping} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+   }                                                                                            #end of foreach loop
+   #
+   # ping all the APC UPS hosts
+   #
+   foreach $key (sort keys %apcups_hosts) {
+      $cmd = "$ping -c 1 $apcups_hosts{$key}{hostname}";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #run command
+      while (<IN>) {                                                                            #read a line from the command output
+         $apcups_hosts{$key}{ping} = "up"   if ( / 0\% packet loss/  );                       #look for ping reply
+         $apcups_hosts{$key}{ping} = "down" if ( /100\% packet loss/ );                       #look for ping reply
+      }                                                                                         #end of while loop
+      print "      $apcups_hosts{$key}{hostname} ping status is $apcups_hosts{$key}{ping} \n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
 } 												#end of subroutine
@@ -2889,8 +2918,6 @@ sub get_ciscoios_status {
 
 
 
-
-
 sub get_fortigate_status {
    #
    print "running get_fortigate_status subroutine \n" if ($verbose eq "yes");
@@ -3311,6 +3338,7 @@ sub get_linux_status {
       # check UNIX password age for root user
       #
       $linux_hosts{$key}{root_password_age_days} = 99999;               			#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{root_password_maxage_days} = 99999;               			#initialize hash element to avoid undef errors
       $linux_hosts{$key}{root_password_age}      = "UNKNOWN";               			#initialize hash element to avoid undef errors
       $cmd = "$ssh -q -o PreferredAuthentications=publickey -o PubKeyAuthentication=yes $linux_hosts{$key}{hostname} /usr/local/nagios/libexec/check_unix_password_age --maxage=180 --user=root";
       print "   running command: $cmd \n" if ($verbose eq "yes");
@@ -3564,9 +3592,9 @@ sub get_mikrotik_swos_status {
    foreach $key (sort keys %mikrotik_swos_hosts) {
       $mikrotik_swos_hosts{$key}{snmp} = "unknown";                                          	#initialize hash element
       #
-      # get CPU utilization
+      # get device health
       #
-      $cmd = "/usr/local/nagios/libexec/check_mikrotik_swos -H $mikrotik_swos_hosts{$key}{hostname} -C public";  #just call the nagios check
+      $cmd = "/usr/local/nagios/libexec/check_mikrotik_swos -H $mikrotik_swos_hosts{$key}{hostname} -C $community";  #just call the nagios check
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the command output
@@ -3579,10 +3607,71 @@ sub get_mikrotik_swos_status {
             $mikrotik_swos_hosts{$key}{snmp}   = "ok";                                          #finding a value here means we have working SNMP
          }                                                                                      #end of if/else block
       }                                                                                         #end of while loop
-      print "   health:$mikrotik_swos_hosts{$key}{cpu} \n" if ($verbose eq "yes");
+      print "   health:$mikrotik_swos_hosts{$key}{health} \n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
+
+
+sub get_apcups_status {
+   #
+   print "running get_apcups_status subroutine \n" if ($verbose eq "yes");
+   #
+   #
+   $community = $community_apcups;                                                       #set SNMP community string for this device type
+   print "   setting SNMP community to $community \n" if ($verbose eq "yes");
+   #
+   # query all the APC UPS to get system health via SNMP (by running an existing nagios check)
+   # This assues there is already a nagios monitoring system in place with preshared ssh keys
+   #
+   foreach $key (sort keys %apcups_hosts) {
+      $apcups_hosts{$key}{snmp}            = "unknown";                                        	#initialize hash element
+      $apcups_hosts{$key}{temperature_C}   = 9999;                                          	#initialize hash element
+      $apcups_hosts{$key}{ambienthumidity} = 9999;                                        	#initialize hash element
+      $apcups_hosts{$key}{battery_runtime_remaining} = 9999;                                   	#initialize hash element
+      #
+      # get device health
+      #
+      $cmd = "/usr/local/nagios/libexec/check_apcups -H $apcups_hosts{$key}{hostname} -C $community";  #just call the nagios check
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
+      while (<IN>) {                                                                            #read a line from the command output
+         #
+         # confirm we get an SNMP response
+         #
+         if ( /No SNMP response/ ) {                                                             #find output of nagios check
+            $apcups_hosts{$key}{snmp}   = "unknown";                                          
+         } else {
+            $apcups_hosts{$key}{snmp}   = "ok";                                      
+         }
+         #
+         # Look in nagios check perfdata output for temperature, humidity, runtime
+         #
+         if ( /ambient_temp=([0-9]+)/ ) {                                                #look for ambient temperature in perfdata output
+            $apcups_hosts{$key}{temperature_C}   = $1;                                     #save value to hash
+         }
+         if ( /ambient_humidity=([0-9]+)/ ) {                                                #look for ambient humidity in perfdata output
+            $apcups_hosts{$key}{ambienthumidity} = $1;                                     #save value to hash
+         }
+         if ( /battery_runtime_remaining=([0-9]+)/ ) {                                     #look for UPS runtime in perfdata output
+            $apcups_hosts{$key}{battery_runtime_remaining} = $1;                                     #save value to hash
+         }
+         #
+         # Look in nagios check output for OK|WARN|CRITICAL|UNKNOWN
+         #
+         if ( /^APC UPS OK/ ) {                                                           #find output of nagios check
+            $apcups_hosts{$key}{health} = "OK";                                          #shorten the status to just "OK"
+         } 
+         if ( (/^APC UPS WARN/) || (/^APC UPS CRITICAL/) || (/^APC UPS UNKNOWN/) ) {       #find output of nagios check
+            s/\|.*//g;										#get rid of nagios performance data after the | character, not relevant for this report
+            $apcups_hosts{$key}{health} = $_;                                            #if status is not OK, include details of the problem
+         } 
+      }                                                                                         #end of while loop
+      print "   health:$apcups_hosts{$key}{health} temperature_C:$apcups_hosts{$key}{temperature_C} humidity:$apcups_hosts{$key}{ambienthumidity} runtime:$apcups_hosts{$key}{battery_runtime_remaining} minutes \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+   }                                                                                            #end of foreach loop
+}                                                                                               #end of subroutine
+
 
 
 
@@ -5083,6 +5172,94 @@ sub generate_html_report_mikrotik_swos_hosts {
 }                                                                                       #end of subroutine
 
 
+sub generate_html_report_apcups_hosts {
+   #
+   print "running generate_html_report_apcups_hosts subroutine \n" if ($verbose eq "yes");
+   #
+   return unless (@apcups_hostnames);                                                    #break out of subroutine if no hostnames are defined
+   # Create the HTML table for APC UPS devices
+   #
+   print OUT "<table border=1> \n";
+   print OUT "<tr bgcolor=gray><td colspan=7> APC UPS hosts \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> Health <td> Temperature C <td> Humidity <td> Runtime minutes \n";
+   foreach $key (sort keys %apcups_hosts) {
+      #
+      # print hostname field in table row
+      #
+      $bgcolor = "white";
+      print OUT "<tr><td>$apcups_hosts{$key}{hostname} \n" ;
+      #
+      # print ping status in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if ( $apcups_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $apcups_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $apcups_hosts{$key}{ping} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $apcups_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $apcups_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor colspan=5> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $apcups_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $apcups_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $apcups_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $apcups_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor colspan=4> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print overall system health in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if ( $apcups_hosts{$key}{health} eq "OK" );
+      $bgcolor = "red"    if ( $apcups_hosts{$key}{health} ne "OK" );
+      print OUT "    <td bgcolor=$bgcolor> $apcups_hosts{$key}{health} \n";
+      #
+      # print ambient temperature in table row
+      # green is a healthy temperature range 10-25 Celsius
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "orange" if ( ($apcups_hosts{$key}{temperature_C} >  25) && ($apcups_hosts{$key}{temperature_C} <  9999) );
+      $bgcolor = "orange" if ( ($apcups_hosts{$key}{temperature_C} <  10) && ($apcups_hosts{$key}{temperature_C} <  9999) );
+      $bgcolor = "green"  if ( ($apcups_hosts{$key}{temperature_C} >= 10) && ($apcups_hosts{$key}{temperature_C} <= 25)   );
+      print OUT "    <td bgcolor=$bgcolor> $apcups_hosts{$key}{temperature_C} \n";
+      #
+      # print ambient humidity in table row
+      # green is a healthy ambient humidity range 30-60%
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "orange" if ( ($apcups_hosts{$key}{ambienthumidity} <  30) && ($apcups_hosts{$key}{ambienthumidity} <  9999) );
+      $bgcolor = "orange" if ( ($apcups_hosts{$key}{ambienthumidity} >  60) && ($apcups_hosts{$key}{ambienthumidity} <  9999) );
+      $bgcolor = "green"  if ( ($apcups_hosts{$key}{ambienthumidity} >= 30) && ($apcups_hosts{$key}{ambienthumidity} <= 60)   );
+      $apcups_hosts{$key}{ambienthumidity} = "unknown" if ($apcups_hosts{$key}{ambienthumidity} == 9999);
+      print OUT "    <td bgcolor=$bgcolor> $apcups_hosts{$key}{ambienthumidity} \n";
+      #
+      # print runtime minutes remaining in table row
+      # green is anything longer than 30 minutes of runtime
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "orange" if ( ($apcups_hosts{$key}{battery_runtime_remaining} <  30) && ($apcups_hosts{$key}{battery_runtime_remaining} <  9999) );
+      $bgcolor = "green"  if ( ($apcups_hosts{$key}{battery_runtime_remaining} >= 30) && ($apcups_hosts{$key}{battery_runtime_remaining} <= 9999)   );
+      $apcups_hosts{$key}{battery_runtime_remaining} = "unknown" if ($apcups_hosts{$key}{battery_runtime_remaining} == 9999);
+      print OUT "    <td bgcolor=$bgcolor> $apcups_hosts{$key}{battery_runtime_remaining} \n";
+   }                                                                                    #end of foreach loop
+   # print HTML table footer
+   print OUT "</table><p>\&nbsp\;</p> \n";
+}                                                                                       #end of subroutine
+
+
 
 sub generate_html_report_netapp_hosts {
    #
@@ -5239,6 +5416,10 @@ get_ciscoios_status;
 get_fortigate_status;
 get_mikrotik_swos_status;
 #
+# miscellaneous devices
+#
+get_apcups_status;
+#
 # generate HTML report of all devices that were found
 #
 generate_html_report_header;			#just create the initial HTML header for the report
@@ -5260,7 +5441,8 @@ generate_html_report_netapp_hosts;      	#if any netapp           hosts exist, a
 generate_html_report_qnap_hosts;		#if any qnap             hosts exist, add them to the report 
 generate_html_report_ciscoios_hosts;    	#if any ciscoios         hosts exist, add them to the report
 generate_html_report_fortigate_hosts;		#if any fortigate        hosts exist, add them to the report 
-generate_html_report_mikrotik_swos_hosts;       #if any hmc              hosts exist, add them to the report
+generate_html_report_mikrotik_swos_hosts;       #if any mikrotik         hosts exist, add them to the report
+generate_html_report_apcups_hosts;              #if any apcups           hosts exist, add them to the report
 generate_html_report_footer;			#now that all hosts have been added to the report, add the HTML footer
 send_report_via_email;
 
