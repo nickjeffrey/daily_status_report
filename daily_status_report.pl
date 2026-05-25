@@ -56,6 +56,7 @@
 # 2026-01-06	njeffrey        Add section for ManageEngine agent to "Linux Security Posture" table
 # 2026-01-08	njeffrey        Add column for pending security updates to "Linux Security Posture" table
 # 2026-03-10	njeffrey        Add section for APC UPS 
+# 2026-05-25	njeffrey        Add regex to skip Linux filesystems with mount point /mnt/longhorn/ 
 
 
 
@@ -3823,6 +3824,7 @@ sub generate_html_report_linux_hosts {
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/containers/ );	#skip any filesystems used by docker or podman containers
          next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/docker\/overlay/ );	#skip any filesystems used by docker or podman containers
          next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/kubelet\//) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/mnt\/longhorn\//)     && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
          $fontcolor = "black";										#initialize variable
          $fontcolor = "green"  if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 80 );
          $fontcolor = "orange" if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}  > 80 ) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );
