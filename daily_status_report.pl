@@ -46,7 +46,7 @@
 # 2023-05-10	njeffrey        Add column to Linux hosts output table showing Linux version (examples: RHEL8.6 CentOS9 OL8.6 )
 # 2023-06-26	njeffrey        Add Linux filesystem mount points /repo02 /u01 /u02 /u03 /u04 /u05 /u06 /backup
 # 2023-08-11	njeffrey        Refactor get_linux_fs_util subroutine to detect all mount point names instead of hard-coding mount points
-# 2024-05-16	njeffrey        Add get_linux_security_posture subroutine for Linux security posture status (selinux status, antmalware agents like Arctic Wolf, Crowdstrike, etc)
+# 2024-05-16	njeffrey        Add get_linux_security_posture subroutine for Linux security posture status (selinux status, antimalware agents like Arctic Wolf, Crowdstrike, etc)
 # 2024-10-02	njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/overlay/ 
 # 2024-12-02	njeffrey        Add configuration flags used by get_linux_security_posture subroutine to allow for items (ie CrowdStrike) to be defined as mandatory
 # 2025-04-21	njeffrey        Add -q parameter to ssh commands to avoid displaying /etc/motd 
@@ -56,7 +56,8 @@
 # 2026-01-06	njeffrey        Add section for ManageEngine agent to "Linux Security Posture" table
 # 2026-01-08	njeffrey        Add column for pending security updates to "Linux Security Posture" table
 # 2026-03-10	njeffrey        Add section for APC UPS 
-# 2026-05-25	njeffrey        Add regex to skip Linux filesystems with mount point /mnt/longhorn/ 
+# 2026-05-25	njeffrey        Add regex to skip Linux filesystems with mount point /mnt/longhorn/ for kubernetes clusters
+# 2026-06-17	njeffrey        Add apparmor to Linux security posture section
 
 
 
@@ -115,7 +116,7 @@ my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
 my ($count,$drive_letter,@drive_letters);
 my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate,$community_apcups);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
-my ($linux_selinux,$linux_firewall,$linux_fail2ban,$linux_sssd,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
+my ($linux_selinux,$linux_apparmor,$linux_firewall,$linux_fail2ban,$linux_sssd,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
 
 $verbose               = "yes";									#yes/no flag to increase verbosity for debugging
 $ping                  = "/bin/ping";								#location of binary
@@ -130,6 +131,7 @@ $bgcolor               = "white";								#HTML background color
 $localhost             = `hostname -s`;								#get the local hostname
 $monitoring_system_url = "";									#initialize to avoid undef errors
 $linux_selinux         = "";                							#initialize to avoid undef errors
+$linux_apparmor        = "";                							#initialize to avoid undef errors
 $linux_firewall        = "";                							#initialize to avoid undef errors
 $linux_fail2ban        = "";                							#initialize to avoid undef errors
 $linux_sssd            = "";                							#initialize to avoid undef errors
@@ -261,7 +263,8 @@ sub read_config_file {
       #
       # Linux security posture settings
       #
-      $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      	 	   #find line in config file
+      $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      	    	#find line in config file
+      $linux_apparmor          = "mandatory" if (/^linux_apparmor=mandatory/);       	   	#find line in config file
       $linux_firewall          = "mandatory" if (/^linux_firewall=mandatory/);       		#find line in config file
       $linux_fail2ban          = "mandatory" if (/^linux_fail2ban=mandatory/);       		#find line in config file
       $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);                	#find line in config file
@@ -2083,8 +2086,9 @@ sub get_linux_security_posture {
       #
       $linux_hosts{$key}{linux_version}            = "unknown";                        			#initialize hash element to avoid undef errors
       $linux_hosts{$key}{days_since_patch}         = 0;                                          	#initialize hash element to avoid undef errors
-      $linux_hosts{$key}{pending_security_updates} = "unknown";                                         	#initialize hash element to avoid undef errors
+      $linux_hosts{$key}{pending_security_updates} = "unknown";                                        	#initialize hash element to avoid undef errors
       $linux_hosts{$key}{selinux}                  = "unknown";                                         #initialize hash element to avoid undef errors
+      $linux_hosts{$key}{apparmor}                 = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{firewall}                 = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{fail2ban}                 = "unknown";                                         #initialize hash element to avoid undef errors
       $linux_hosts{$key}{sssd}                     = "unknown";                                         #initialize hash element to avoid undef errors
@@ -2101,10 +2105,11 @@ sub get_linux_security_posture {
       print "   running command: $cmd \n" if ($verbose eq "yes");
       open(IN,"$cmd 2>&1|");                                                                    #open filehandle from command output
       while (<IN>) {                                                                            #read a line from the filehandle
-         $linux_hosts{$key}{linux_version}            = $1 if (/linux_version:([a-zA-Z0-9_\-\.]+)/ );
+         $linux_hosts{$key}{linux_version}            = $1 if (/linux_version:([a-zA-Z0-9_\-\.\(\)\/]+)/ );
          $linux_hosts{$key}{days_since_patch}         = $1 if (/days_since_patch:([0-9]+)/         );
          $linux_hosts{$key}{pending_security_updates} = $1 if (/pending_security_updates:([0-9]+)/ );
          $linux_hosts{$key}{selinux}                  = $1 if (/selinux:([a-zA-Z0-9]+)/            );
+         $linux_hosts{$key}{apparmor}                 = $1 if (/apparmor:([a-zA-Z0-9]+)/           ); 
          $linux_hosts{$key}{firewall}                 = $1 if (/firewall:([a-zA-Z0-9]+)/           );
          $linux_hosts{$key}{fail2ban}                 = $1 if (/fail2ban:([a-zA-Z0-9]+)/           );
          $linux_hosts{$key}{sssd}                     = $1 if (/sssd:([a-zA-Z0-9]+)/               );
@@ -2118,7 +2123,7 @@ sub get_linux_security_posture {
          $linux_hosts{$key}{msdefender}               = $1 if (/msdefender:([a-zA-Z0-9]+)/         );
          $linux_hosts{$key}{manageengine}             = $1 if (/manageengine:([a-zA-Z0-9]+)/       );
       }                                                                                         #end of while loop
-      print "   selinux:$linux_hosts{$key}{selinux} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} sssd:$linux_hosts{$key}{sssd} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
+      print "   selinux:$linux_hosts{$key}{selinux} apparmor:$linux_hosts{$key}{apparmor} firewall:$linux_hosts{$key}{firewall} fail2ban:$linux_hosts{$key}{fail2ban} sssd:$linux_hosts{$key}{sssd} auditd:$linux_hosts{$key}{auditd} fapolicyd:$linux_hosts{$key}{fapolicyd} AIDE:$linux_hosts{$key}{aide} arcticwolf:$linux_hosts{$key}{arcticwolf} crowdstrike:$linux_hosts{$key}{crowdstrike} sentinelone:$linux_hosts{$key}{sentinelone} clamav:$linux_hosts{$key}{clamav} msdefender:$linux_hosts{$key}{msdefender} manageengine:$linux_hosts{$key}{manageengine}\n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
@@ -3923,7 +3928,7 @@ sub generate_html_report_linux_security_posture {
    #
    print OUT "<table border=1> \n";
    print OUT "<tr bgcolor=gray><td colspan=18> Security posture on Linux hosts \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux <td> firewall <td> fail2ban <td> sssd <td> auditd <td> fapolicyd <td> AIDE <td> Crowdstrike <td> Manage Engine <td> Arctic Wolf <td> Sentinel One <td> ClamAV <td> MS Defender \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> OS version <td> Days since patch <td> Pending security updates <td> selinux / apparmor <td> firewall <td> fail2ban <td> sssd <td> auditd <td> fapolicyd <td> AIDE <td> Crowdstrike <td> Manage Engine <td> Arctic Wolf <td> Sentinel One <td> ClamAV <td> MS Defender \n";
    foreach $key (sort keys %linux_hosts) {
       #
       # print hostname field in table row
@@ -3965,12 +3970,16 @@ sub generate_html_report_linux_security_posture {
       #$bgcolor = "red"    if (  $linux_hosts{$key}{pending_security_updates} > 100);
       print OUT "   <td bgcolor=$bgcolor> $linux_hosts{$key}{pending_security_updates} \n";
       #
-      # selinux status in table row
+      # selinux / apparmor status in table row
+      # This is a unique table column because it displays selinux status for RHEL, and apparmor status for Debian
       #
       $bgcolor = "white";								#initialize variable
-      $bgcolor = "green"  if (  $linux_hosts{$key}{selinux} eq "Enforcing");
-      $bgcolor = "red"    if (  $linux_hosts{$key}{selinux} eq "Disabled");
-      print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{selinux} \n";
+      $bgcolor = "green"  if (  $linux_hosts{$key}{selinux}  eq "Enforcing");		#for selinux
+      $bgcolor = "red"    if (  $linux_hosts{$key}{selinux}  eq "Disabled");		#for selinux
+      $bgcolor = "green"  if (  $linux_hosts{$key}{apparmor} eq "active");		#for apparmor
+      $bgcolor = "red"    if (  $linux_hosts{$key}{apparmor} eq "inactive");		#for apparmor
+      unless ($linux_hosts{$key}{selinux}  eq "unknown") { print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{selinux} \n"; }
+      unless ($linux_hosts{$key}{apparmor} eq "unknown") { print OUT "    <td bgcolor=$bgcolor> $linux_hosts{$key}{apparmor} \n"; }
       #
       # firewall status in table row
       #
