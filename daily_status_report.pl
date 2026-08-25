@@ -58,6 +58,7 @@
 # 2026-03-10	njeffrey        Add section for APC UPS 
 # 2026-05-25	njeffrey        Add regex to skip Linux filesystems with mount point /mnt/longhorn/ for kubernetes clusters
 # 2026-06-17	njeffrey        Add apparmor to Linux security posture section
+# 2026-08-25	njeffrey        Add support for Synology NAS
 
 
 
@@ -106,7 +107,7 @@ use strict; 				#enforce good coding practices
 my ($verbose,$cmd,$oid,$host,$snmpwalk,$snmpget,$ssh,$ping,$localhost,$monitoring_system_url);
 my (@linux_hostnames,%linux_hosts,@windows_hostnames,%windows_hosts,@aix_hostnames,%aix_hosts,@hmc_hostnames,%hmc_hosts);                               #operating systems
 my (@idrac8_hostnames,%idrac8_hosts,@idrac9_hostnames,%idrac9_hosts,@ibm_imm2_hostnames,%ibm_imm2_hosts,@xclarity_hostnames,%xclarity_hosts,@hpilo4_hostnames,%hpilo4_hosts);               #service processors
-my (@brocade_hostnames,%brocade_hosts,@unisphere_hostnames,%unisphere_hosts,@flashsystem_hostnames,%flashsystem_hosts,@netapp_hostnames,%netapp_hosts,@qnap_hostnames,%qnap_hosts); #SAN storage
+my (@brocade_hostnames,%brocade_hosts,@unisphere_hostnames,%unisphere_hosts,@flashsystem_hostnames,%flashsystem_hosts,@netapp_hostnames,%netapp_hosts,@synology_hostnames,%synology_hosts,@qnap_hostnames,%qnap_hosts); #SAN storage
 my (@ciscoios_hostnames,%ciscoios_hosts,@fortigate_hostnames,%fortigate_hosts,@mikrotik_swos_hostnames,%mikrotik_swos_hosts);                           #networking 
 my (@apcups_hostnames,%apcups_hosts);                           #UPS 
 my (@san_multipath_linux_hostnames,%san_multipath_linux_hosts);
@@ -114,7 +115,7 @@ my ($key,$key2,$config_file,$output_file,$bgcolor,$fontcolor);
 my ($to,$from,$subject,$sendmail);
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst); 
 my ($count,$drive_letter,@drive_letters);
-my ($community,$community_linux,$community_windows,$community_netapp,$community_ciscoios,$community_fortigate,$community_apcups);
+my ($community,$community_linux,$community_windows,$community_netapp,$community_synology,$community_ciscoios,$community_fortigate,$community_apcups);
 my ($community_mikrotik_swos,$community_idrac9,$community_hpilo4,$community_brocade,$community_unisphere);
 my ($linux_selinux,$linux_apparmor,$linux_firewall,$linux_fail2ban,$linux_sssd,$linux_auditd,$linux_fapolicyd,$linux_aide,$linux_arcticwolf,$linux_crowdstrike,$linux_sentinelone,$linux_clamav,$linux_msdefender,$linux_manageengine);
 
@@ -243,6 +244,7 @@ sub read_config_file {
       @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
       @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @synology_hostnames            = split(',' , $1) if (/^synology_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       @mikrotik_swos_hostnames       = split(',' , $1) if (/^mikrotik_swos_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       @apcups_hostnames              = split(',' , $1) if (/^apcups_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       #
@@ -252,6 +254,7 @@ sub read_config_file {
       $community_linux         = $1 if (/^community_linux=(\S+)/);				#find line in config file
       $community_windows       = $1 if (/^community_windows=(\S+)/);				#find line in config file
       $community_netapp        = $1 if (/^community_netapp=(\S+)/);				#find line in config file
+      $community_synology      = $1 if (/^community_netapp=(\S+)/);				#find line in config file
       $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);				#find line in config file
       $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);				#find line in config file
       $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);			#find line in config file
@@ -482,6 +485,15 @@ sub define_hosts {
       $netapp_hosts{$host}{ping}           = "unknown";                                         #initialize hash element
       $netapp_hosts{$host}{health}         = "unknown";                                         #initialize hash element
       print "      found netapp hostname $netapp_hosts{$host}{hostname} \n" if ($verbose eq "yes");
+   }                                                                                            #end of foreach loop
+   #
+   # build a hash for all Synology storage systems
+   #
+   foreach $host (@synology_hostnames) {
+      $synology_hosts{$host}{hostname}       = $host;                                             #initialize hash element
+      $synology_hosts{$host}{ping}           = "unknown";                                         #initialize hash element
+      $synology_hosts{$host}{health}         = "unknown";                                         #initialize hash element
+      print "      found synology hostname $synology_hosts{$host}{hostname} \n" if ($verbose eq "yes");
    }                                                                                            #end of foreach loop
    #
    # build a hash for all Cisco IOS network devices
@@ -733,7 +745,7 @@ sub ping_hosts {
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
    #
-   # ping all the NetApp ONTAP  hosts
+   # ping all the NetApp  hosts
    #
    foreach $key (sort keys %netapp_hosts) {
       $cmd = "$ping -c 1 $netapp_hosts{$key}{hostname}";
@@ -743,7 +755,21 @@ sub ping_hosts {
          $netapp_hosts{$key}{ping} = "up"   if ( / 0\% packet loss/  );                         #look for ping reply
          $netapp_hosts{$key}{ping} = "down" if ( /100\% packet loss/ );                         #look for ping reply
       }                                                                                         #end of while loop
-      print "      $netapp_hosts{$key}{hostname} ping status is $netapp_hosts{$key}{ping} \n" if ($verbose eq "yes");
+      print "      $synology_hosts{$key}{hostname} ping status is $synology_hosts{$key}{ping} \n" if ($verbose eq "yes");
+      close IN;                                                                                 #close filehandle
+   }                                                                                            #end of foreach loop
+   #
+   # ping all the Synology  hosts
+   #
+   foreach $key (sort keys %synology_hosts) {
+      $cmd = "$ping -c 1 $synology_hosts{$key}{hostname}";
+      print "   running command: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #run command
+      while (<IN>) {                                                                            #read a line from the command output
+         $synology_hosts{$key}{ping} = "up"   if ( / 0\% packet loss/  );                         #look for ping reply
+         $synology_hosts{$key}{ping} = "down" if ( /100\% packet loss/ );                         #look for ping reply
+      }                                                                                         #end of while loop
+      print "      $synology_hosts{$key}{hostname} ping status is $synology_hosts{$key}{ping} \n" if ($verbose eq "yes");
       close IN;                                                                                 #close filehandle
    }                                                                                            #end of foreach loop
    #
@@ -2877,6 +2903,114 @@ sub get_netapp_status {
 }                                                                                               #end of subroutine
 
 
+#xxxx
+sub get_synology_status {
+   #
+   print "running get_synology_status subroutine \n" if ($verbose eq "yes");
+   #
+   $community = $community_synology;                                              #set the SNMP community string for this device type
+   print "   setting SNMP community to $community \n" if ($verbose eq "yes");
+   #
+   # query all the synology storage systems via  SNMP
+   #
+   #  .1.3.6.1.4.1.6574.1.1.0 systemStatus 1=normal 2=crashed
+   #  This indicates the overall status of the Synology appliance.  
+   #
+   #  Sample output: 
+   #  $ snmpget -v 1 -c public synology01 .1.3.6.1.4.1.6574.1.1.0
+   #  SNMPv2-SMI::enterprises.6574.1.1.0 = INTEGER: 1                   <--  1=normal 2=crashed
+   #
+   #  Sample output for sysDescr OID, which contains the hostname
+   #  $ snmpwalk -v 1 -c public synology1.example.com .1.3.6.1.2.1.1.1.0
+   #  SNMPv2-MIB::sysDescr.0 = STRING: Linux ds720 4.4.302+ #86009 SMP Wed Nov 26 18:19:17 CST 2025 x86_64
+   #
+   #  Sample output for modelName
+   #  $ snmpwalk -v 1 -c public nas1 .1.3.6.1.4.1.6574.1.5.1.0
+   #  SNMPv2-SMI::enterprises.6574.1.5.1.0 = STRING: "DS720+"
+   #
+   #  Sample output for serialNumber
+   # $ snmpwalk -v 1 -c public nas1 .1.3.6.1.4.1.6574.1.5.2.0
+   # SNMPv2-SMI::enterprises.6574.1.5.2.0 = STRING: "2130QWRSXXXXX"
+   #
+   #  Sample output for Disk Station Manager software level
+   #  $ snmpwalk -v 1 -c public nas1 .1.3.6.1.4.1.6574.1.5.3.0
+   #  SNMPv2-SMI::enterprises.6574.1.5.3.0 = STRING: "DSM 7.3-86009"
+   #
+   #
+   #
+   foreach $key (sort keys %synology_hosts) {
+      #
+      # Confirm SNMP is working
+      #
+      $synology_hosts{$key}{snmp}          = "unknown";   		                               	#initialize hash element
+      $synology_hosts{$key}{dsm_version} = "";   		                               	#initialize hash element
+      $oid = ".1.3.6.1.4.1.6574.1.5.3.0";                                                      	#SNMP OID for DSM version
+      $cmd = "$snmpget -v 1 -c $community $synology_hosts{$key}{hostname} $oid";                  #define command to be run
+      print "   running command to get DSM version: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;										#get rid of any quotation marks in the output to make the regex simpler
+         if ( / = STRING: DSM ([a-zA-Z0-9\-\.]+)/ ) { 						#Capture the DSM version
+            $synology_hosts{$key}{dsm_version} = $1;                                         	#value for currently running DSM version
+            $synology_hosts{$key}{snmp}          = "ok";                                        #finding a value here means we have working SNMP
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
+      print "   host:$synology_hosts{$key}{hostname} dsm_version:$synology_hosts{$key}{dsm_version} \n" if ($verbose eq "yes");
+      #
+      # Check the synology SNMP OID for the overall health of the hardware and software
+      #
+      $synology_hosts{$key}{systemStatus} = "unknown";                                        #initialize hash element
+      $oid = ".1.3.6.1.4.1.6574.1.1.0";                                                      #SNMP OID for all physical memory module condition / status / health
+      $cmd = "$snmpget -v 1 -c $community $synology_hosts{$key}{hostname} $oid";                  #define command to be run
+      print "   running command to get synology system status: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;										#get rid of any quotation marks in the output to make the regex simpler
+         if ( / = INTEGER: ([0-9]+)/ ) {
+            $synology_hosts{$key}{systemStatus} = $1;                                         #value for systemStatus
+            $synology_hosts{$key}{systemStatus} = "normal"  if ( $synology_hosts{$key}{systemStatus} eq "1" );   #convert integer to human readable text
+            $synology_hosts{$key}{systemStatus} = "crashed" if ( $synology_hosts{$key}{systemStatus} eq "2" );   #convert integer to human readable text
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
+      print "   host:$synology_hosts{$key}{hostname} systemStatus:$synology_hosts{$key}{systemStatus} \n" if ($verbose eq "yes");
+      #
+      # Check the synology SNMP OID for the modelName
+      #
+      $synology_hosts{$key}{modelName} = "unknown";                                        	#initialize hash element
+      $oid = ".1.3.6.1.4.1.6574.1.5.1.0";                                                      	#SNMP OID for modelName
+      $cmd = "$snmpget -v 1 -c $community $synology_hosts{$key}{hostname} $oid";                #define command to be run
+      print "   running command to get synology modelName: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;										#get rid of any quotation marks in the output to make the regex simpler
+         if ( / = STRING: ([a-zA-Z0-9_\-\+]+)/ ) {
+            $synology_hosts{$key}{modelName} = $1;                                         	#value for modelName
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
+      print "   model:$synology_hosts{$key}{modelName} \n" if ($verbose eq "yes");
+      #
+      # Check the synology SNMP OID for the serialNumber
+      #
+      $synology_hosts{$key}{serialNumber} = "unknown";                                        	#initialize hash element
+      $oid = ".1.3.6.1.4.1.6574.1.5.2.0";                                                      	#SNMP OID for serialNumber
+      $cmd = "$snmpget -v 1 -c $community $synology_hosts{$key}{hostname} $oid";                #define command to be run
+      print "   running command to get synology serialNumber: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;										#get rid of any quotation marks in the output to make the regex simpler
+         if ( / = STRING: ([a-zA-Z0-9_\-\+]+)/ ) {
+            $synology_hosts{$key}{serialNumber} = $1;                                         	#value for serialNumber
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
+      print "   serial:$synology_hosts{$key}{serialNumber} \n" if ($verbose eq "yes");
+   }                                                                                            #end of foreach loop
+}                                                                                               #end of subroutine
+
+
 
 sub get_ciscoios_status {
    #
@@ -4739,6 +4873,143 @@ sub generate_html_report_flashsystem_hosts {
 
 
 
+sub generate_html_report_netapp_hosts {
+   #
+   print "running generate_html_report_netapp_hosts subroutine \n" if ($verbose eq "yes");
+   #
+   return unless (@netapp_hostnames);							#break out of subroutine if no hostnames are defined
+   # Create the HTML table for netapp storage systems
+   #
+   print OUT "<table border=1> \n";
+   print OUT "<tr bgcolor=gray><td colspan=4> NetApp storage  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> Health <td> ONTAP \n";
+   foreach $key (sort keys %netapp_hosts) {
+      #
+      # print hostname field in table row
+      #
+      $bgcolor = "white"; 
+      print OUT "<tr><td>$netapp_hosts{$key}{hostname} \n" ;
+      #
+      # print ping status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if ( $netapp_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $netapp_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $netapp_hosts{$key}{ping} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $netapp_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $netapp_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print overall system health in table row from the miscGlobalStatus OID
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green"  if (  $netapp_hosts{$key}{miscGlobalStatus} eq "OK");
+      $bgcolor = "red"    if (  $netapp_hosts{$key}{miscGlobalStatus} ne "OK");
+      $bgcolor = "orange" if (  $netapp_hosts{$key}{miscGlobalStatus} eq "Unknown");
+      $bgcolor = "orange" if (  $netapp_hosts{$key}{miscGlobalStatus} eq "Other");
+      $bgcolor = "orange" if (  $netapp_hosts{$key}{miscGlobalStatus} eq "nonCritical");
+      $bgcolor = "red"    if (  $netapp_hosts{$key}{miscGlobalStatus} eq "nonRecoverable");
+      $bgcolor = "red"    if (  $netapp_hosts{$key}{miscGlobalStatus} eq "Critical");
+      print OUT "    <td bgcolor=$bgcolor> $netapp_hosts{$key}{miscGlobalStatus} \n";
+      #
+      # print ONTAP version in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if (  $netapp_hosts{$key}{ontap_version} eq "unknown");
+      print OUT "    <td bgcolor=$bgcolor> $netapp_hosts{$key}{ontap_version}\% \n";
+   } 											#end of foreach loop
+   print OUT "</table><p>\&nbsp\;</p> \n";						#print HTML table footer
+}											#end of subroutine
+
+
+
+
+sub generate_html_report_synology_hosts {
+   #
+   print "running generate_html_report_synology_hosts subroutine \n" if ($verbose eq "yes");
+   #
+   return unless (@synology_hostnames);                                                   #break out of subroutine if no hostnames are defined
+   # Create the HTML table for synology storage systems
+   #
+   print OUT "<table border=1> \n";
+   print OUT "<tr bgcolor=gray><td colspan=7> Synology storage systems \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> SNMP <td> Health <td> Model <td> Serial <td> DSM \n";
+   foreach $key (sort keys %synology_hosts) {
+      #
+      # print hostname field in table row
+      #
+      $bgcolor = "white";
+      print OUT "<tr><td>$synology_hosts{$key}{hostname} \n" ;
+      #
+      # print ping status in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if ( $synology_hosts{$key}{ping} eq "up" );
+      $bgcolor = "red"    if ( $synology_hosts{$key}{ping} eq "down" );
+      $bgcolor = "orange" if ( $synology_hosts{$key}{ping} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $synology_hosts{$key}{ping} \n";
+      #
+      # if host did not respond to ping, just put blanks in for the rest of the line
+      #
+      if ( $synology_hosts{$key}{ping} ne "up" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print SNMP status in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "green" if ( $synology_hosts{$key}{snmp} eq "ok" );
+      $bgcolor = "red"   if ( $synology_hosts{$key}{snmp} eq "unknown" );
+      print OUT "   <td bgcolor=$bgcolor> $synology_hosts{$key}{snmp} \n";
+      #
+      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
+      #
+      if ( $synology_hosts{$key}{snmp} ne "ok" ) { 
+         $bgcolor = "white";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         next;   									#skip the rest of this for loop iteration
+      }
+      #
+      # print global health status in table row
+      #
+      $bgcolor = "white";
+      $bgcolor = "green"  if ( $synology_hosts{$key}{systemStatus} eq "normal"  );
+      $bgcolor = "red"    if ( $synology_hosts{$key}{systemStatus} eq "crashed" );
+      $bgcolor = "orange" if ( $synology_hosts{$key}{systemStatus} eq "unknown" );
+      print OUT "    <td bgcolor=$bgcolor> $synology_hosts{$key}{systemStatus} \n" ;
+      #
+      # print modelName in table row
+      #
+      $bgcolor = "white";
+      $bgcolor = "orange" if ( $synology_hosts{$key}{modelName} eq "unknown" );
+      print OUT "    <td bgcolor=$bgcolor> $synology_hosts{$key}{modelName} \n" ;
+      #
+      # print serialNumber in table row
+      #
+      $bgcolor = "white";
+      $bgcolor = "orange" if ( $synology_hosts{$key}{serialNumber} eq "unknown" );
+      print OUT "    <td bgcolor=$bgcolor> $synology_hosts{$key}{serialNumber} \n" ;
+      #
+      # print DSM version in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "red"    if ( $synology_hosts{$key}{dsm_version} eq "unknown" );
+      print OUT "    <td bgcolor=$bgcolor> $synology_hosts{$key}{dsm_version} \n";
+   }                                                                                    #end of foreach loop
+   print OUT "</table><p>\&nbsp\;</p> \n";						#print HTML table footer
+}                                                                                       #end of subroutine
+
+
+
+
 sub generate_html_report_ciscoios_hosts {
    #
    print "running generate_html_report_ciscoios_hosts subroutine \n" if ($verbose eq "yes");
@@ -5273,71 +5544,6 @@ sub generate_html_report_apcups_hosts {
 
 
 
-sub generate_html_report_netapp_hosts {
-   #
-   print "running generate_html_report_netapp_hosts subroutine \n" if ($verbose eq "yes");
-   #
-   return unless (@netapp_hostnames);                                                   #break out of subroutine if no hostnames are defined
-   # Create the HTML table for NetApp ONTAP storage systems
-   #
-   print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=5> NetApp ONTAP storage systems \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> ping <td> SNMP <td> ONTAP <td> Health  \n";
-   foreach $key (sort keys %netapp_hosts) {
-      #
-      # print hostname field in table row
-      #
-      $bgcolor = "white";
-      print OUT "<tr><td>$netapp_hosts{$key}{hostname} \n" ;
-      #
-      # print ping status in table row
-      #
-      $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green"  if ( $netapp_hosts{$key}{ping} eq "up" );
-      $bgcolor = "red"    if ( $netapp_hosts{$key}{ping} eq "down" );
-      $bgcolor = "orange" if ( $netapp_hosts{$key}{ping} eq "unknown" );
-      print OUT "   <td bgcolor=$bgcolor> $netapp_hosts{$key}{ping} \n";
-      #
-      # if host did not respond to ping, just put blanks in for the rest of the line
-      #
-      if ( $netapp_hosts{$key}{ping} ne "up" ) { 
-         $bgcolor = "white";
-         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
-         next;   									#skip the rest of this for loop iteration
-      }
-      #
-      # print SNMP status in table row
-      #
-      $bgcolor = "white";								#initialize variable
-      $bgcolor = "green" if ( $netapp_hosts{$key}{snmp} eq "ok" );
-      $bgcolor = "red"   if ( $netapp_hosts{$key}{snmp} eq "unknown" );
-      print OUT "   <td bgcolor=$bgcolor> $netapp_hosts{$key}{snmp} \n";
-      #
-      # if host did not respond to SNMP queries, just put blanks in for the rest of the line
-      #
-      if ( $netapp_hosts{$key}{snmp} ne "ok" ) { 
-         $bgcolor = "white";
-         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
-         next;   									#skip the rest of this for loop iteration
-      }
-      #
-      # print ONTAP version field in table row
-      #
-      $bgcolor = "white";
-      print OUT "    <td>$netapp_hosts{$key}{ontap_version} \n" ;
-      #
-      # print overall system health in table row
-      #
-      $bgcolor = "white";                                                               #initialize variable
-      $bgcolor = "green"  if ( $netapp_hosts{$key}{miscGlobalStatus} eq "OK" );
-      $bgcolor = "red"    if ( $netapp_hosts{$key}{miscGlobalStatus} ne "OK" );
-      print OUT "    <td bgcolor=$bgcolor> $netapp_hosts{$key}{miscGlobalStatus} \n";
-   }                                                                                    #end of foreach loop
-   # print HTML table footer
-   print OUT "</table><p>\&nbsp\;</p> \n";
-}                                                                                       #end of subroutine
-
-
 
 
 sub generate_html_report_footer {
@@ -5421,6 +5627,7 @@ get_emc_unisphere_status;
 get_flashsystem_status;
 get_qnap_status;
 get_netapp_status;
+get_synology_status;
 #
 # check networking devices
 #
@@ -5450,6 +5657,7 @@ generate_html_report_brocade_hosts;		#if any brocade          hosts exist, add t
 generate_html_report_unisphere_hosts;		#if any unisphere        hosts exist, add them to the report 
 generate_html_report_flashsystem_hosts;		#if any flashsystem      hosts exist, add them to the report 
 generate_html_report_netapp_hosts;      	#if any netapp           hosts exist, add them to the report
+generate_html_report_synology_hosts;      	#if any synology         hosts exist, add them to the report
 generate_html_report_qnap_hosts;		#if any qnap             hosts exist, add them to the report 
 generate_html_report_ciscoios_hosts;    	#if any ciscoios         hosts exist, add them to the report
 generate_html_report_fortigate_hosts;		#if any fortigate        hosts exist, add them to the report 
