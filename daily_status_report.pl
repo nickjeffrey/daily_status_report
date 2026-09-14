@@ -59,7 +59,7 @@
 # 2026-05-25	njeffrey        Add regex to skip Linux filesystems with mount point /mnt/longhorn/ for kubernetes clusters
 # 2026-06-17	njeffrey        Add apparmor to Linux security posture section
 # 2026-08-25	njeffrey        Add support for Synology NAS
-
+# 2026-09-14	njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/rootfs/overlayfs/ for docker containers
 
 
 # NOTES
@@ -3955,16 +3955,19 @@ sub generate_html_report_linux_hosts {
       print OUT "    <td bgcolor=$bgcolor> \n" if ($linux_hosts{$key}{os} eq "Linux");	#start the HTML table data for Linux hosts
       # Figure out which filesystem names we want to see in the report
       foreach $key2 (keys(%{$linux_hosts{$key}{linux_fs}})) {						#$keys2 loops through each hrStorageIndex hash key
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageType} ne "hrStorageFixedDisk" );	#skip any hash entries that are not of the type hrStorageFixedDisk
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/dev\// );			#skip any pseudo-filesystems that begin with /dev/ 
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/sys\// );			#skip any pseudo-filesystems that begin with /sys/ 
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run\// );			#skip any pseudo-filesystems that begin with /run/ 
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run$/ );			#skip the pseudo-filesystems named /run (no trailing slash)
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/containers/ );	#skip any filesystems used by docker or podman containers
-         next if ( $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/docker\/overlay/ );	#skip any filesystems used by docker or podman containers
-         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/kubelet\//)     && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
-         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/mnt\/longhorn\//)         && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
-         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/mnt\/longhorn-storage\//) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
+         next if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageType} ne "hrStorageFixedDisk" );	#skip any hash entries that are not of the type hrStorageFixedDisk
+         next if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/dev\// );			#skip any pseudo-filesystems that begin with /dev/ 
+         next if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/sys\// );			#skip any pseudo-filesystems that begin with /sys/ 
+         next if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run\// );			#skip any pseudo-filesystems that begin with /run/ 
+         next if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/run$/ );			#skip the pseudo-filesystems named /run (no trailing slash)
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/containers\/)                 && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by containers that are less than 90% full, just because there may be dozens or hundreds
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/docker\/overlay\/)            && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by containers that are less than 90% full, just because there may be dozens or hundreds
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/docker\/rootfs\/overlayfs\//) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by containers that are less than 90% full, just because there may be dozens or hundreds
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/var\/lib\/kubelet\//)                   && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/mnt\/longhorn\//)                       && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
+         next if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageDescr} =~ /^\/mnt\/longhorn-storage\//)               && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );       #skip any filesystems used by kubernetes that are less than 90% full, just because there may be dozens or hundreds
+         
+         /var/lib/docker/rootfs/overlayfs/
          $fontcolor = "black";										#initialize variable
          $fontcolor = "green"  if (  $linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 80 );
          $fontcolor = "orange" if ( ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct}  > 80 ) && ($linux_hosts{$key}{linux_fs}{$key2}{hrStorageUsed_pct} <= 90) );
