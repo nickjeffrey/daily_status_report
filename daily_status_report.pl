@@ -60,6 +60,7 @@
 # 2026-06-17	njeffrey        Add apparmor to Linux security posture section
 # 2026-08-25	njeffrey        Add support for Synology NAS
 # 2026-09-14	njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/rootfs/overlayfs/ for docker containers
+# 2026-10-07	njeffrey        Add fortigate_hostnames line to read_config_file subroutine
 
 
 # NOTES
@@ -229,56 +230,57 @@ sub read_config_file {
       #
       # device hostnames
       #
-      @aix_hostnames                 = split(',' , $1) if (/^aix_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @hmc_hostnames                 = split(',' , $1) if (/^hmc_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @linux_hostnames               = split(',' , $1) if (/^linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
+      @aix_hostnames                 = split(',' , $1) if (/^aix_hostnames=([a-zA-Z0-9,_\-\.]+)/);	            #find line in config file
+      @hmc_hostnames                 = split(',' , $1) if (/^hmc_hostnames=([a-zA-Z0-9,_\-\.]+)/);	            #find line in config file
+      @linux_hostnames               = split(',' , $1) if (/^linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	         #find line in config file
       @san_multipath_linux_hostnames = split(',' , $1) if (/^san_multipath_linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @windows_hostnames             = split(',' , $1) if (/^windows_hostnames=([a-zA-Z0-9,_\-\.]+)/);  #find line in config file
-      @xclarity_hostnames            = split(',' , $1) if (/^xclarity_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @ibm_imm2_hostnames            = split(',' , $1) if (/^ibm_imm2_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @hpilo4_hostnames              = split(',' , $1) if (/^hpilo4_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @brocade_hostnames             = split(',' , $1) if (/^brocade_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	#find line in config file
-      @flashsystem_hostnames         = split(',' , $1) if (/^flashsystem_hostnames=([a-zA-Z0-9,_\-\.]+)/); #find line in config file
-      @unisphere_hostnames           = split(',' , $1) if (/^unisphere_hostnames=([a-zA-Z0-9,_\-\.]+)/);#find line in config file
-      @idrac8_hostnames              = split(',' , $1) if (/^idrac8_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @synology_hostnames            = split(',' , $1) if (/^synology_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @windows_hostnames             = split(',' , $1) if (/^windows_hostnames=([a-zA-Z0-9,_\-\.]+)/);         #find line in config file
+      @xclarity_hostnames            = split(',' , $1) if (/^xclarity_hostnames=([a-zA-Z0-9,_\-\.]+)/);	      #find line in config file
+      @ibm_imm2_hostnames            = split(',' , $1) if (/^ibm_imm2_hostnames=([a-zA-Z0-9,_\-\.]+)/);	      #find line in config file
+      @hpilo4_hostnames              = split(',' , $1) if (/^hpilo4_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	      #find line in config file
+      @brocade_hostnames             = split(',' , $1) if (/^brocade_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	      #find line in config file
+      @flashsystem_hostnames         = split(',' , $1) if (/^flashsystem_hostnames=([a-zA-Z0-9,_\-\.]+)/);     #find line in config file
+      @unisphere_hostnames           = split(',' , $1) if (/^unisphere_hostnames=([a-zA-Z0-9,_\-\.]+)/);       #find line in config file
+      @idrac8_hostnames              = split(',' , $1) if (/^idrac8_hostnames=([a-zA-Z0-9,_\-\.]+)/);	         #find line in config file
+      @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	         #find line in config file
+      @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	         #find line in config file
+      @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	      #find line in config file
+      @synology_hostnames            = split(',' , $1) if (/^synology_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	   #find line in config file
       @mikrotik_swos_hostnames       = split(',' , $1) if (/^mikrotik_swos_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @apcups_hostnames              = split(',' , $1) if (/^apcups_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @fortigate_hostnames           = split(',' , $1) if (/^fortigate_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	   #find line in config file
+      @apcups_hostnames              = split(',' , $1) if (/^apcups_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	      #find line in config file
       #
       # SNMP community strings
       #
-      $community               = $1 if (/^community=(\S+)/);					#find line in config file \S refers to any non-whitespace character
+      $community               = $1 if (/^community=(\S+)/);					   #find line in config file \S refers to any non-whitespace character
       $community_linux         = $1 if (/^community_linux=(\S+)/);				#find line in config file
       $community_windows       = $1 if (/^community_windows=(\S+)/);				#find line in config file
       $community_netapp        = $1 if (/^community_netapp=(\S+)/);				#find line in config file
       $community_synology      = $1 if (/^community_netapp=(\S+)/);				#find line in config file
-      $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);				#find line in config file
-      $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);				#find line in config file
-      $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);			#find line in config file
+      $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);			#find line in config file
+      $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);			#find line in config file
+      $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);		#find line in config file
       $community_idrac9        = $1 if (/^community_idrac9=(\S+)/);				#find line in config file
       $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				#find line in config file
       $community_brocade       = $1 if (/^community_brocade=(\S+)/);				#find line in config file
-      $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);				#find line in config file
+      $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);		   #find line in config file
       $community_apcups        = $1 if (/^community_apcups=(\S+)/);				#find line in config file
       #
       # Linux security posture settings
       #
       $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      	    	#find line in config file
-      $linux_apparmor          = "mandatory" if (/^linux_apparmor=mandatory/);       	   	#find line in config file
+      $linux_apparmor          = "mandatory" if (/^linux_apparmor=mandatory/);       	   #find line in config file
       $linux_firewall          = "mandatory" if (/^linux_firewall=mandatory/);       		#find line in config file
       $linux_fail2ban          = "mandatory" if (/^linux_fail2ban=mandatory/);       		#find line in config file
-      $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);                	#find line in config file
-      $linux_fapolicyd         = "mandatory" if (/^linux_fapolicyd=mandatory/);             	#find line in config file
-      $linux_aide              = "mandatory" if (/^linux_aide=mandatory/);                	#find line in config file
-      $linux_arcticwolf        = "mandatory" if (/^linux_arcticwolf=mandatory/);                #find line in config file
-      $linux_crowdstrike       = "mandatory" if (/^linux_crowdstrike=mandatory/);               #find line in config file
-      $linux_sentinelone       = "mandatory" if (/^linux_sentinelone=mandatory/);               #find line in config file
-      $linux_clamav            = "mandatory" if (/^linux_clamav=mandatory/);               	#find line in config file
-      $linux_msdefender        = "mandatory" if (/^linux_msdefender=mandatory/); 		#find line in config file
-      $linux_manageengine      = "mandatory" if (/^linux_manageengine=mandatory/); 		#find line in config file
+      $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);              #find line in config file
+      $linux_fapolicyd         = "mandatory" if (/^linux_fapolicyd=mandatory/);           #find line in config file
+      $linux_aide              = "mandatory" if (/^linux_aide=mandatory/);                #find line in config file
+      $linux_arcticwolf        = "mandatory" if (/^linux_arcticwolf=mandatory/);          #find line in config file
+      $linux_crowdstrike       = "mandatory" if (/^linux_crowdstrike=mandatory/);         #find line in config file
+      $linux_sentinelone       = "mandatory" if (/^linux_sentinelone=mandatory/);         #find line in config file
+      $linux_clamav            = "mandatory" if (/^linux_clamav=mandatory/);              #find line in config file
+      $linux_msdefender        = "mandatory" if (/^linux_msdefender=mandatory/); 		   #find line in config file
+      $linux_manageengine      = "mandatory" if (/^linux_manageengine=mandatory/); 		   #find line in config file
 
    }                                                                                         	#end of while loop
    close IN;                                                                                 	#close filehandle
