@@ -60,7 +60,7 @@
 # 2026-06-17	njeffrey        Add apparmor to Linux security posture section
 # 2026-08-25	njeffrey        Add support for Synology NAS
 # 2026-09-14	njeffrey        Add regex to skip Linux filesystems with mount point /var/lib/docker/rootfs/overlayfs/ for docker containers
-# 2026-10-07	njeffrey        Add fortigate_hostnames line to read_config_file subroutine
+# 2026-10-07	njeffrey        Update Cisco and Fortigate sections to include uptime and software version in report output
 
 
 # NOTES
@@ -132,20 +132,34 @@ $config_file           = "/home/nagios/daily_status_report.cfg";				#location of
 $bgcolor               = "white";								#HTML background color
 $localhost             = `hostname -s`;								#get the local hostname
 $monitoring_system_url = "";									#initialize to avoid undef errors
-$linux_selinux         = "";                							#initialize to avoid undef errors
-$linux_apparmor        = "";                							#initialize to avoid undef errors
-$linux_firewall        = "";                							#initialize to avoid undef errors
-$linux_fail2ban        = "";                							#initialize to avoid undef errors
-$linux_sssd            = "";                							#initialize to avoid undef errors
-$linux_auditd          = "";                							#initialize to avoid undef errors
-$linux_fapolicyd       = "";                							#initialize to avoid undef errors
-$linux_aide            = "";                							#initialize to avoid undef errors
-$linux_arcticwolf      = "";                							#initialize to avoid undef errors
-$linux_crowdstrike     = "";                							#initialize to avoid undef errors
-$linux_sentinelone     = "";                							#initialize to avoid undef errors
-$linux_clamav          = "";                							#initialize to avoid undef errors
-$linux_msdefender      = "";									#initialize to avoid undef errors
-$linux_manageengine    = "";									#initialize to avoid undef errors
+#
+$linux_selinux           = "";                							#initialize to avoid undef errors
+$linux_apparmor          = "";                							#initialize to avoid undef errors
+$linux_firewall          = "";                							#initialize to avoid undef errors
+$linux_fail2ban          = "";                							#initialize to avoid undef errors
+$linux_sssd              = "";                							#initialize to avoid undef errors
+$linux_auditd            = "";                							#initialize to avoid undef errors
+$linux_fapolicyd         = "";                							#initialize to avoid undef errors
+$linux_aide              = "";                							#initialize to avoid undef errors
+$linux_arcticwolf        = "";                							#initialize to avoid undef errors
+$linux_crowdstrike       = "";                							#initialize to avoid undef errors
+$linux_sentinelone       = "";                							#initialize to avoid undef errors
+$linux_clamav            = "";                							#initialize to avoid undef errors
+$linux_msdefender        = "";									#initialize to avoid undef errors
+$linux_manageengine      = "";									#initialize to avoid undef errors
+#
+$community_linux         = ""; 									#initialize to avoid undef errors
+$community_windows       = ""; 									#initialize to avoid undef errors
+$community_netapp        = ""; 									#initialize to avoid undef errors
+$community_synology      = "";  								#initialize to avoid undef errors
+$community_ciscoios      = "";  								#initialize to avoid undef errors
+$community_fortigate     = "";									#initialize to avoid undef errors 
+$community_apcups        = ""; 									#initialize to avoid undef errors
+$community_mikrotik_swos = "";									#initialize to avoid undef errors
+$community_idrac9        = ""; 									#initialize to avoid undef errors
+$community_hpilo4        = "";  								#initialize to avoid undef errors
+$community_brocade       = ""; 									#initialize to avoid undef errors
+$community_unisphere     = ""; 									#initialize to avoid undef errors
 
 
 
@@ -230,57 +244,58 @@ sub read_config_file {
       #
       # device hostnames
       #
-      @aix_hostnames                 = split(',' , $1) if (/^aix_hostnames=([a-zA-Z0-9,_\-\.]+)/);	            #find line in config file
-      @hmc_hostnames                 = split(',' , $1) if (/^hmc_hostnames=([a-zA-Z0-9,_\-\.]+)/);	            #find line in config file
-      @linux_hostnames               = split(',' , $1) if (/^linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	         #find line in config file
+      @aix_hostnames                 = split(',' , $1) if (/^aix_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
+      @hmc_hostnames                 = split(',' , $1) if (/^hmc_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
+      @linux_hostnames               = split(',' , $1) if (/^linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
       @san_multipath_linux_hostnames = split(',' , $1) if (/^san_multipath_linux_hostnames=([a-zA-Z0-9,_\-\.]+)/);	#find line in config file
-      @windows_hostnames             = split(',' , $1) if (/^windows_hostnames=([a-zA-Z0-9,_\-\.]+)/);         #find line in config file
-      @xclarity_hostnames            = split(',' , $1) if (/^xclarity_hostnames=([a-zA-Z0-9,_\-\.]+)/);	      #find line in config file
-      @ibm_imm2_hostnames            = split(',' , $1) if (/^ibm_imm2_hostnames=([a-zA-Z0-9,_\-\.]+)/);	      #find line in config file
-      @hpilo4_hostnames              = split(',' , $1) if (/^hpilo4_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	      #find line in config file
-      @brocade_hostnames             = split(',' , $1) if (/^brocade_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	      #find line in config file
-      @flashsystem_hostnames         = split(',' , $1) if (/^flashsystem_hostnames=([a-zA-Z0-9,_\-\.]+)/);     #find line in config file
-      @unisphere_hostnames           = split(',' , $1) if (/^unisphere_hostnames=([a-zA-Z0-9,_\-\.]+)/);       #find line in config file
-      @idrac8_hostnames              = split(',' , $1) if (/^idrac8_hostnames=([a-zA-Z0-9,_\-\.]+)/);	         #find line in config file
-      @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);	         #find line in config file
-      @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	         #find line in config file
-      @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	      #find line in config file
-      @synology_hostnames            = split(',' , $1) if (/^synology_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	   #find line in config file
+      @windows_hostnames             = split(',' , $1) if (/^windows_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @xclarity_hostnames            = split(',' , $1) if (/^xclarity_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
+      @ibm_imm2_hostnames            = split(',' , $1) if (/^ibm_imm2_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
+      @hpilo4_hostnames              = split(',' , $1) if (/^hpilo4_hostnames=([a-zA-Z0-9,_\-\.]+)/);  		#find line in config file
+      @brocade_hostnames             = split(',' , $1) if (/^brocade_hostnames=([a-zA-Z0-9,_\-\.]+)/); 		#find line in config file
+      @flashsystem_hostnames         = split(',' , $1) if (/^flashsystem_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	#find line in config file
+      @unisphere_hostnames           = split(',' , $1) if (/^unisphere_hostnames=([a-zA-Z0-9,_\-\.]+)/); 	#find line in config file
+      @idrac8_hostnames              = split(',' , $1) if (/^idrac8_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
+      @idrac9_hostnames              = split(',' , $1) if (/^idrac9_hostnames=([a-zA-Z0-9,_\-\.]+)/);		#find line in config file
+      @qnap_hostnames                = split(',' , $1) if (/^qnap_hostnames=([a-zA-Z0-9,_\-\.]+)/);  		#find line in config file
+      @netapp_hostnames              = split(',' , $1) if (/^netapp_hostnames=([a-zA-Z0-9,_\-\.]+)/);  		#find line in config file
+      @synology_hostnames            = split(',' , $1) if (/^synology_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
       @mikrotik_swos_hostnames       = split(',' , $1) if (/^mikrotik_swos_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
-      @fortigate_hostnames           = split(',' , $1) if (/^fortigate_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	   #find line in config file
-      @apcups_hostnames              = split(',' , $1) if (/^apcups_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	      #find line in config file
+      @ciscoios_hostnames            = split(',' , $1) if (/^ciscoios_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @fortigate_hostnames           = split(',' , $1) if (/^fortigate_hostnames=([a-zA-Z0-9,_\-\.]+)/);  	#find line in config file
+      @apcups_hostnames              = split(',' , $1) if (/^apcups_hostnames=([a-zA-Z0-9,_\-\.]+)/);  		#find line in config file
       #
       # SNMP community strings
       #
-      $community               = $1 if (/^community=(\S+)/);					   #find line in config file \S refers to any non-whitespace character
+      $community               = $1 if (/^community=(\S+)/);					#find line in config file \S refers to any non-whitespace character
       $community_linux         = $1 if (/^community_linux=(\S+)/);				#find line in config file
       $community_windows       = $1 if (/^community_windows=(\S+)/);				#find line in config file
       $community_netapp        = $1 if (/^community_netapp=(\S+)/);				#find line in config file
       $community_synology      = $1 if (/^community_netapp=(\S+)/);				#find line in config file
-      $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);			#find line in config file
-      $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);			#find line in config file
-      $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);		#find line in config file
+      $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);				#find line in config file
+      $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);				#find line in config file
+      $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);			#find line in config file
       $community_idrac9        = $1 if (/^community_idrac9=(\S+)/);				#find line in config file
       $community_hpilo4        = $1 if (/^community_hpilo4=(\S+)/);				#find line in config file
       $community_brocade       = $1 if (/^community_brocade=(\S+)/);				#find line in config file
-      $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);		   #find line in config file
+      $community_unisphere     = $1 if (/^community_unisphere=(\S+)/);				#find line in config file
       $community_apcups        = $1 if (/^community_apcups=(\S+)/);				#find line in config file
       #
       # Linux security posture settings
       #
       $linux_selinux           = "mandatory" if (/^linux_selinux=mandatory/);      	    	#find line in config file
-      $linux_apparmor          = "mandatory" if (/^linux_apparmor=mandatory/);       	   #find line in config file
+      $linux_apparmor          = "mandatory" if (/^linux_apparmor=mandatory/);       	   	#find line in config file
       $linux_firewall          = "mandatory" if (/^linux_firewall=mandatory/);       		#find line in config file
       $linux_fail2ban          = "mandatory" if (/^linux_fail2ban=mandatory/);       		#find line in config file
-      $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);              #find line in config file
-      $linux_fapolicyd         = "mandatory" if (/^linux_fapolicyd=mandatory/);           #find line in config file
-      $linux_aide              = "mandatory" if (/^linux_aide=mandatory/);                #find line in config file
-      $linux_arcticwolf        = "mandatory" if (/^linux_arcticwolf=mandatory/);          #find line in config file
-      $linux_crowdstrike       = "mandatory" if (/^linux_crowdstrike=mandatory/);         #find line in config file
-      $linux_sentinelone       = "mandatory" if (/^linux_sentinelone=mandatory/);         #find line in config file
-      $linux_clamav            = "mandatory" if (/^linux_clamav=mandatory/);              #find line in config file
-      $linux_msdefender        = "mandatory" if (/^linux_msdefender=mandatory/); 		   #find line in config file
-      $linux_manageengine      = "mandatory" if (/^linux_manageengine=mandatory/); 		   #find line in config file
+      $linux_auditd            = "mandatory" if (/^linux_auditd=mandatory/);                	#find line in config file
+      $linux_fapolicyd         = "mandatory" if (/^linux_fapolicyd=mandatory/);             	#find line in config file
+      $linux_aide              = "mandatory" if (/^linux_aide=mandatory/);                	#find line in config file
+      $linux_arcticwolf        = "mandatory" if (/^linux_arcticwolf=mandatory/);                #find line in config file
+      $linux_crowdstrike       = "mandatory" if (/^linux_crowdstrike=mandatory/);               #find line in config file
+      $linux_sentinelone       = "mandatory" if (/^linux_sentinelone=mandatory/);               #find line in config file
+      $linux_clamav            = "mandatory" if (/^linux_clamav=mandatory/);               	#find line in config file
+      $linux_msdefender        = "mandatory" if (/^linux_msdefender=mandatory/); 		#find line in config file
+      $linux_manageengine      = "mandatory" if (/^linux_manageengine=mandatory/); 		#find line in config file
 
    }                                                                                         	#end of while loop
    close IN;                                                                                 	#close filehandle
@@ -3031,8 +3046,46 @@ sub get_ciscoios_status {
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %ciscoios_hosts) {
-      $ciscoios_hosts{$key}{snmp} = "unknown";                                                  #initialize hash element
+      $ciscoios_hosts{$key}{uptime}      = "unknown";                                          #initialize hash element
+      $ciscoios_hosts{$key}{snmp}        = "unknown";                                          #initialize hash element
+      $ciscoios_hosts{$key}{ios_version} = "unknown";                                          #initialize hash element
       #
+      # Check for the sysUptime OID to confirm SNMP is working
+      # Sample output:
+      # $ snmpwalk -On -v 1 -c public switch.example.com 1.3.6.1.2.1.1.3.0
+      # .1.3.6.1.2.1.1.3.0 = Timeticks: (1785461210) 206 days, 15:36:52.10
+      #
+      $oid = "1.3.6.1.2.1.1.3.0";                                                  #SNMP OID for CPU utilization percentage
+      $cmd = "$snmpwalk -v 1 -c $community $ciscoios_hosts{$key}{hostname} $oid";               #define command to be run
+      print "   running command to confirm SNMP is responding: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;                                                                                #get rid of " character to simplify regex
+         if ( /Timeticks: \(([0-9]+)\) / ) {                                                    #look for a response to the snmp query
+            $ciscoios_hosts{$key}{uptime} = $1;              					#uptime in hundredths of seconds
+            $ciscoios_hosts{$key}{uptime} = $ciscoios_hosts{$key}{uptime}/100/60/60/24;  	#convert from seconds to days
+            $ciscoios_hosts{$key}{uptime} = sprintf("%.0f",$ciscoios_hosts{$key}{uptime});  	#truncate to 0 decimal places, closest day is good enough
+            $ciscoios_hosts{$key}{snmp} = "ok";              					#finding a value here means we  have working SNMP
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
+      #
+      # Check for the Cisco IOS version
+      # Sample output:
+      # # snmpget -On -v 1 -c public switch.example.com .1.3.6.1.2.1.1.1.0
+      # .1.3.6.1.2.1.1.1.0 = STRING: Cisco IOS Software [Gibraltar], Catalyst L3 Switch Software (CAT9K_LITE_IOSXE), Version 16.12.3a, RELEASE SOFTWARE (fc1)
+      #
+      $oid = ".1.3.6.1.2.1.1.1.0";                                                  #SNMP OID for CPU utilization percentage
+      $cmd = "$snmpget -v 1 -c $community $ciscoios_hosts{$key}{hostname} $oid";               #define command to be run
+      print "   running command to check Cisco IOS version: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;                                                                                #get rid of " character to simplify regex
+         if ( /STRING: .* Version ([0-9a-zA-Z\.\-]+), / ) {                                     #look for a response to the snmp query
+            $ciscoios_hosts{$key}{ios_version} = $1;              				#save value to hash
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
       #
       # Get the ciscoios CPU utilization
       #
@@ -3053,7 +3106,8 @@ sub get_ciscoios_status {
       close IN;                                                                                 #close filehandle
       $ciscoios_hosts{$key}{cpu_util} = $ciscoios_hosts{$key}{cpu_util} / $count;               #calculate average CPU util across all processors
       $ciscoios_hosts{$key}{cpu_util} = sprintf("%.0f",$ciscoios_hosts{$key}{cpu_util});        #truncate to 0 decimal places
-      print "   host:$ciscoios_hosts{$key}{hostname} cpu_util:$ciscoios_hosts{$key}{cpu_util}\% \n" if ($verbose eq "yes");
+      #
+      print "   host:$ciscoios_hosts{$key}{hostname} cpu_util:$ciscoios_hosts{$key}{cpu_util}\% uptime_days:$ciscoios_hosts{$key}{uptime} ios_version:$ciscoios_hosts{$key}{ios_version} \n" if ($verbose eq "yes");
    }                                                                                            #end of foreach loop
 }                                                                                               #end of subroutine
 
@@ -3070,8 +3124,11 @@ sub get_fortigate_status {
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    foreach $key (sort keys %fortigate_hosts) {
-      $fortigate_hosts{$key}{snmp} = "unknown";					#initialize value to avoid undef errors
-      $fortigate_hosts{$key}{cpu_util} = 0;					#initialize value to avoid undef errors
+      $fortigate_hosts{$key}{snmp}            = "unknown";			#initialize value to avoid undef errors
+      $fortigate_hosts{$key}{cpu_util}        = 0;				#initialize value to avoid undef errors
+      $fortigate_hosts{$key}{model}           = "unknown";			#initialize value to avoid undef errors
+      $fortigate_hosts{$key}{serial}          = "unknown";			#initialize value to avoid undef errors
+      $fortigate_hosts{$key}{fortios_version} = "unknown";			#initialize value to avoid undef errors
       next unless ( $fortigate_hosts{$key}{ping} eq "up" );			#skip hosts that do not respond to ping
       #
       #
@@ -3121,7 +3178,67 @@ sub get_fortigate_status {
          }                                                             		#end of if block
       }                                                                		#end of while loop
       close IN;                                                         	#close filehandle
-      print "   host:$fortigate_hosts{$key}{hostname} cpu_util:$fortigate_hosts{$key}{cpu_util}\% ram_util:$fortigate_hosts{$key}{ram_util}\% bandwith_util:$fortigate_hosts{$key}{bandwidth_mbps}Mbps \n" if ($verbose eq "yes");
+      #
+      # Check for the sysUptime OID to confirm SNMP is working
+      # Sample output:
+      # $ snmpwalk -On -v 1 -c public hostname.example.com 1.3.6.1.2.1.1.3.0
+      # .1.3.6.1.2.1.1.3.0 = Timeticks: (1785461210) 206 days, 15:36:52.10
+      #
+      $oid = "1.3.6.1.2.1.1.3.0";                                                  #SNMP OID for CPU utilization percentage
+      $cmd = "$snmpwalk -v 1 -c $community $fortigate_hosts{$key}{hostname} $oid";               #define command to be run
+      print "   running command to check uptime: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                                                   #open filehandle using command output
+      while (<IN>) {                                                                            #read a line from the command output
+         s/"//g;                                                                                #get rid of " character to simplify regex
+         if ( /Timeticks: \(([0-9]+)\) / ) {                                                    #look for a response to the snmp query
+            $fortigate_hosts{$key}{uptime} = $1;              					#uptime in hundredths of seconds
+            $fortigate_hosts{$key}{uptime} = $fortigate_hosts{$key}{uptime}/100/60/60/24;  	#convert from seconds to days
+            $fortigate_hosts{$key}{uptime} = sprintf("%.0f",$fortigate_hosts{$key}{uptime});  	#truncate to 0 decimal places, closest day is good enough
+         }                                                                                      #end of if block
+      }                                                                                         #end of while loop
+      close IN;                                                                                 #close filehandle
+      #
+      #
+      # Get the Model Number and Serial Number
+      # Sample output:
+      # .1.3.6.1.2.1.47.1.1.1.1.2.1 = STRING: "Fortinet FGT_100F, HW Serial#: FG100FTK21057XXX"
+      # .1.3.6.1.2.1.47.1.1.1.1.2.1 = STRING: "Fortinet FWF_40F, HW Serial#: FWF40FTK22006XXX"
+      # .1.3.6.1.2.1.47.1.1.1.1.2.1 = STRING: "Fortinet FSW_124E-P, HW Serial#: S124EPS222019XXX"
+      # {iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprise(1) fortinet(12356) fnFortiGateMib(101) fgHighAvailability(13) fgHaTables(2) fgHaStatsTable(1) fgHaStatsEntry(1) fgHaStatsNetUsage(5)}
+      #
+      $oid = "1.3.6.1.2.1.47.1.1.1.1.2.1";
+      $cmd = "$snmpget -On -v 1 -c $community $fortigate_hosts{$key}{hostname} $oid";	#define command to be run
+      print "   running command to get FortiOS version: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
+      while (<IN>) {                                                   	 	#read a line from the command output
+         s/"//g;								#get rid of " character to simplify regex
+         if ( /STRING: Fortinet ([a-zA-Z0-9_\-]+), HW Serial#: ([a-zA-Z0-9]+)/ ) { #look for a response to the snmp query
+            $fortigate_hosts{$key}{model} = $1;					#
+            $fortigate_hosts{$key}{serial} = $1;				#
+         }                                                             		#end of if block
+      }                                                                		#end of while loop
+      close IN;                                                         	#close filehandle
+      #
+      # Get the FortiOS version
+      # Sample output:
+      # .1.3.6.1.2.1.47.1.2.1.1.2.1 = STRING: "Fortinet Firewall FortiGate-100F v7.4.12,build2902,260505 (GA.M)"
+      # .1.3.6.1.2.1.47.1.2.1.1.2.1 = STRING: "Fortinet Firewall FortiWiFi-40F v7.6.7,build3704,260601 (GA.M)"
+      # .1.3.6.1.2.1.47.1.2.1.1.2.1 = STRING: "Fortinet Firewall FortiSwitch-124E-POE v7.06.8,build1164b1164,260709"
+      # {iso(1) identified-organization(3) dod(6) internet(1) private(4) enterprise(1) fortinet(12356) fnFortiGateMib(101) fgHighAvailability(13) fgHaTables(2) fgHaStatsTable(1) fgHaStatsEntry(1) fgHaStatsNetUsage(5)}
+      #
+      $oid = "1.3.6.1.2.1.47.1.2.1.1.2.1";
+      $cmd = "$snmpget -On -v 1 -c $community $fortigate_hosts{$key}{hostname} $oid";	#define command to be run
+      print "   running command to get FortiOS version: $cmd \n" if ($verbose eq "yes");
+      open(IN,"$cmd 2>&1 |");                                           	#open filehandle using command output
+      while (<IN>) {                                                   	 	#read a line from the command output
+         s/"//g;								#get rid of " character to simplify regex
+         if ( / v([0-9]+\.[0-9]+\.[0-9]+),build/ ) {  				#look for a response to the snmp query
+            $fortigate_hosts{$key}{fortios_version} = $1;			#
+         }                                                             		#end of if block
+      }                                                                		#end of while loop
+      close IN;                                                         	#close filehandle
+      #
+      print "   host:$fortigate_hosts{$key}{hostname} cpu_util:$fortigate_hosts{$key}{cpu_util}\% ram_util:$fortigate_hosts{$key}{ram_util}\% bandwith_util:$fortigate_hosts{$key}{bandwidth_mbps}Mbps uptime_days:$fortigate_hosts{$key}{uptime} model:$fortigate_hosts{$key}{model} serial:$fortigate_hosts{$key}{serial} FortiOS:$fortigate_hosts{$key}{fortios_version} \n" if ($verbose eq "yes");
    } 										#end of foreach loop
 } 										#end of subroutine
 
@@ -3760,7 +3877,7 @@ sub get_apcups_status {
    print "running get_apcups_status subroutine \n" if ($verbose eq "yes");
    #
    #
-   $community = $community_apcups;                                                       #set SNMP community string for this device type
+   $community = $community_apcups;                                                       	#set SNMP community string for this device type
    print "   setting SNMP community to $community \n" if ($verbose eq "yes");
    #
    # query all the APC UPS to get system health via SNMP (by running an existing nagios check)
@@ -5020,11 +5137,11 @@ sub generate_html_report_ciscoios_hosts {
    print "running generate_html_report_ciscoios_hosts subroutine \n" if ($verbose eq "yes");
    #
    return unless (@ciscoios_hostnames);                                                 #break out of subroutine if no hostnames are defined
-   # Create the HTML table for FortiGate firewalls
+   # Create the HTML table for Cisco IOS devices
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=4> Cisco IOS Devices  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util \n";
+   print OUT "<tr bgcolor=gray><td colspan=6> Cisco IOS Devices  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util <td> Uptime <td> IOS Version \n";
    foreach $key (sort keys %ciscoios_hosts) {
       #
       # print hostname field in table row
@@ -5042,9 +5159,9 @@ sub generate_html_report_ciscoios_hosts {
       #
       # if host did not respond to ping, just put blanks in for the rest of the line
       #
-      if ( $brocade_hosts{$key}{ping} ne "up" ) { 
+      if ( $ciscoios_hosts{$key}{ping} ne "up" ) { 
          $bgcolor = "white";
-         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
+         print OUT " <td bgcolor=$bgcolor> <td bgcolor=$bgcolor>  <td bgcolor=$bgcolor> <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
       }
       #
@@ -5057,7 +5174,7 @@ sub generate_html_report_ciscoios_hosts {
       #
       # if host did not respond to SNMP queries, just put blanks in for the rest of the line
       #
-      if ( $brocade_hosts{$key}{snmp} ne "ok" ) { 
+      if ( $ciscoios_hosts{$key}{snmp} ne "ok" ) { 
          $bgcolor = "white";
          print OUT " <td bgcolor=$bgcolor> ";
          next;   									#skip the rest of this for loop iteration
@@ -5069,6 +5186,19 @@ sub generate_html_report_ciscoios_hosts {
       $bgcolor = "green"  if (  $ciscoios_hosts{$key}{cpu_util} <= 75 );
       $bgcolor = "red"    if (  $ciscoios_hosts{$key}{cpu_util} >  75 );
       print OUT "    <td bgcolor=$bgcolor> $ciscoios_hosts{$key}{cpu_util}\% \n";
+      #
+      # print uptime in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if (  $ciscoios_hosts{$key}{uptime} >= 1 );
+      $bgcolor = "red"    if (  $ciscoios_hosts{$key}{uptime} <  1 );
+      print OUT "    <td bgcolor=$bgcolor> $ciscoios_hosts{$key}{uptime} days \n";
+      #
+      # print Cisco IOS version in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "red"    if (  $ciscoios_hosts{$key}{ios_version} eq "unknown" );
+      print OUT "    <td bgcolor=$bgcolor> $ciscoios_hosts{$key}{ios_version} \n";
    }                                                                                    #end of foreach loop
    # print HTML table footer
    print OUT "</table><p>\&nbsp\;</p> \n";
@@ -5131,8 +5261,8 @@ sub generate_html_report_fortigate_hosts {
    # Create the HTML table for FortiGate firewalls
    #
    print OUT "<table border=1> \n";
-   print OUT "<tr bgcolor=gray><td colspan=6> FortiGate firewalls  \n";
-   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util <td> RAM util<td> Bandwidth util \n";
+   print OUT "<tr bgcolor=gray><td colspan=10> FortiGate firewalls  \n";
+   print OUT "<tr bgcolor=gray><td> Hostname <td> Ping <td> SNMP <td> CPU util <td> RAM util<td> Bandwidth util <td> Uptime <td> Model <td> Serial <td> FortiOS \n";
    foreach $key (sort keys %fortigate_hosts) {
       #
       # print hostname field in table row
@@ -5191,6 +5321,31 @@ sub generate_html_report_fortigate_hosts {
       $bgcolor = "green"  if (  $fortigate_hosts{$key}{bandwidth_mbps} <= 1000 );	#arbitrary decision to be ok with less than 1000Mbit/sec bandwidth
       $bgcolor = "red"    if (  $fortigate_hosts{$key}{bandwidth_mbps} >  1000 );		
       print OUT "    <td bgcolor=$bgcolor> $fortigate_hosts{$key}{bandwidth_mbps} Mbps \n";
+      #
+      # print uptime in table row
+      #
+      $bgcolor = "white";                                                               #initialize variable
+      $bgcolor = "green"  if (  $fortigate_hosts{$key}{uptime} >= 1 );
+      $bgcolor = "red"    if (  $fortigate_hosts{$key}{uptime} <  1 );
+      print OUT "    <td bgcolor=$bgcolor> $fortigate_hosts{$key}{uptime} days \n";
+      #
+      # print model number in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if (  $fortigate_hosts{$key}{model} eq "unknown" );		
+      print OUT "    <td bgcolor=$bgcolor> $fortigate_hosts{$key}{model} \n";
+      #
+      # print serial number in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if (  $fortigate_hosts{$key}{serial} eq "unknown" );		
+      print OUT "    <td bgcolor=$bgcolor> $fortigate_hosts{$key}{serial} \n";
+      #
+      # print FortiOS version in table row
+      #
+      $bgcolor = "white";								#initialize variable
+      $bgcolor = "red"    if (  $fortigate_hosts{$key}{fortios_version} eq "unknown" );		
+      print OUT "    <td bgcolor=$bgcolor> $fortigate_hosts{$key}{fortios_version} \n";
    } 											#end of foreach loop
    # print HTML table footer 
    print OUT "</table><p>\&nbsp\;</p> \n";
