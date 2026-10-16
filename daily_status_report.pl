@@ -271,7 +271,7 @@ sub read_config_file {
       $community_linux         = $1 if (/^community_linux=(\S+)/);				#find line in config file
       $community_windows       = $1 if (/^community_windows=(\S+)/);				#find line in config file
       $community_netapp        = $1 if (/^community_netapp=(\S+)/);				#find line in config file
-      $community_synology      = $1 if (/^community_netapp=(\S+)/);				#find line in config file
+      $community_synology      = $1 if (/^community_synology=(\S+)/);			#find line in config file
       $community_ciscoios      = $1 if (/^community_ciscoios=(\S+)/);				#find line in config file
       $community_fortigate     = $1 if (/^community_fortigate=(\S+)/);				#find line in config file
       $community_mikrotik_swos = $1 if (/^community_mikrotik_swos=(\S+)/);			#find line in config file
