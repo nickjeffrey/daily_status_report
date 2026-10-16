@@ -5044,7 +5044,7 @@ sub generate_html_report_netapp_hosts {
       #
       $bgcolor = "white";								#initialize variable
       $bgcolor = "red"    if (  $netapp_hosts{$key}{ontap_version} eq "unknown");
-      print OUT "    <td bgcolor=$bgcolor> $netapp_hosts{$key}{ontap_version}\% \n";
+      print OUT "    <td bgcolor=$bgcolor> $netapp_hosts{$key}{ontap_version} \n";
    } 											#end of foreach loop
    print OUT "</table><p>\&nbsp\;</p> \n";						#print HTML table footer
 }											#end of subroutine
